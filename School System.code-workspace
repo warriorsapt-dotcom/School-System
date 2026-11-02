@@ -1,0 +1,23 @@
+{
+  "folders": [{ "name": "School System", "path": "." }],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "files.exclude": { "**/__pycache__": true, "venv": true },
+    "search.exclude": { "**/.venv": true, "**/venv": true }
+  },
+  "extensions": { "recommendations": ["ms-python.python", "ms-python.debugpy", "ms-python.vscode-pylance"] },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [{
+      "name": "School System: Django",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["runserver", "127.0.0.1:8000"],
+      "django": true,
+      "justMyCode": true
+    }]
+  }
+}
