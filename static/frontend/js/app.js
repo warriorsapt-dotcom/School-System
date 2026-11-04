@@ -1,5 +1,6 @@
 /* ── State ── */
 let user = null;
+let schoolAccountSuffix = JSON.parse(document.getElementById('schoolAccountSuffix').textContent);
 let activeSection = 'overview';
 let bsModal = null;
 
@@ -14,6 +15,7 @@ const NAV = {
     { section:'attendance',icon:'fa-calendar-check',   label:'Attendance' },
     { section:'scores',    icon:'fa-star-half-stroke', label:'Scores' },
     { section:'results',   icon:'fa-trophy',           label:'Results' },
+    { section:'school_settings', icon:'fa-school', label:'School Settings' },
     { section:'images',    icon:'fa-images',           label:'School Images' },
     { section:'profile',   icon:'fa-circle-user',      label:'Profile' },
   ],
@@ -134,6 +136,8 @@ async function renderOverview() {
     API.json(await API.getTerms({is_current:true})),
     role === 'student' ? API.json(await API.getAttendance({page_size:500, ordering:'-date'})) : null,
   ]);
+
+  if (activeSection !== 'overview') return;
 
   const termName = trmRes?.results?.[0]
     ? `${trmRes.results[0].name.replace('_',' ')} ${trmRes.results[0].academic_year}`
@@ -1354,7 +1358,7 @@ async function renderProfile() {
                   <input class="form-control" name="last_name" value="${res.last_name||''}">
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Email</label>
+                  <label class="form-label small fw-semibold">Email or school login ID</label>
                   <input class="form-control" type="email" value="${res.email||''}" disabled>
                 </div>
                 <div class="col-md-6">
@@ -1449,8 +1453,9 @@ window.openAddStudent = async () => {
           <input class="form-control" name="last_name" required>
         </div>
         <div class="col-12">
-          <label class="form-label small fw-semibold">Email</label>
-          <input class="form-control" type="email" name="email" required>
+          <label class="form-label small fw-semibold">Email or school login ID</label>
+          <input class="form-control" type="text" name="email" required placeholder="mary or mary@${schoolAccountSuffix}">
+          <small class="text-muted">A name without @ uses @${schoolAccountSuffix}. Full existing email addresses also work.</small>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Password</label>
@@ -1513,8 +1518,9 @@ window.openAddTeacher = async () => {
           <input class="form-control" name="last_name" required>
         </div>
         <div class="col-12">
-          <label class="form-label small fw-semibold">Email</label>
-          <input class="form-control" type="email" name="email" required>
+          <label class="form-label small fw-semibold">Email or school login ID</label>
+          <input class="form-control" type="text" name="email" required placeholder="mary or mary@${schoolAccountSuffix}">
+          <small class="text-muted">A name without @ uses @${schoolAccountSuffix}. Full existing email addresses also work.</small>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Password</label>
@@ -1772,6 +1778,7 @@ async function renderClassPerformance() {
 
 /* ── Router ── */
 const SECTIONS = {
+  school_settings:   renderSchoolSettings,
   overview:          renderOverview,
   class_performance: renderClassPerformance,
   students:          renderStudents,
@@ -1864,3 +1871,65 @@ document.addEventListener('DOMContentLoaded', async () => {
   const start = SECTIONS[hash] ? hash : 'overview';
   navigate(start);
 });
+
+
+async function renderSchoolSettings() {
+  setTitle('School Settings');
+  if (user.role !== 'admin') { pc().textContent = 'Only administrators can change school settings.'; return; }
+  loading();
+  try {
+    const response = await API.schoolSettings();
+    if (!response?.ok) throw new Error('Could not load school settings.');
+    const settings = await API.json(response);
+    if (activeSection !== 'school_settings') return;
+    pc().innerHTML = `
+      <div class="card" style="max-width:720px">
+        <div class="card-header">Set up your school</div>
+        <div class="card-body">
+          <p>Choose the school name displayed on the login page and dashboard, and the suffix used for new accounts.</p>
+          <form id="schoolSettingsForm">
+            <div class="mb-3">
+              <label for="schoolName" class="form-label">School name</label>
+              <input id="schoolName" name="school_name" class="form-control" required maxlength="150">
+            </div>
+            <div class="mb-3">
+              <label for="accountSuffix" class="form-label">Account suffix</label>
+              <div class="input-group"><span class="input-group-text">@</span>
+                <input id="accountSuffix" name="account_suffix" class="form-control" required maxlength="100" aria-describedby="suffixHelp">
+              </div>
+              <div id="suffixHelp" class="form-text">Use ksc for Kahuho Secondary School or ktp for Kiambogo Township Primary. Enter the suffix without @.</div>
+            </div>
+            <p>New account example: <strong id="accountPreview"></strong></p>
+            <p class="text-muted">These are school login IDs. A short suffix does not create an email inbox. Changing it leaves existing accounts and passwords unchanged. Each school needs its own installation and database.</p>
+            <div id="schoolSettingsMessage" role="status" aria-live="polite"></div>
+            <button type="submit" id="saveSchoolSettings" class="btn btn-primary">Save School Settings</button>
+          </form>
+        </div>
+      </div>`;
+    $('schoolName').value = settings.school_name;
+    $('accountSuffix').value = settings.account_suffix;
+    const preview = () => { $('accountPreview').textContent = 'example@' + $('accountSuffix').value.trim().toLowerCase(); };
+    $('accountSuffix').addEventListener('input', preview);
+    preview();
+    $('schoolSettingsForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = $('saveSchoolSettings');
+      const message = $('schoolSettingsMessage');
+      button.disabled = true;
+      message.textContent = '';
+      try {
+        const response = await API.updateSchoolSettings({school_name: $('schoolName').value.trim(), account_suffix: $('accountSuffix').value.trim().toLowerCase()});
+        const data = await API.json(response);
+        if (!response?.ok) throw new Error(data ? Object.values(data).flat().join(' ') : 'Could not save school settings.');
+        schoolAccountSuffix = data.account_suffix;
+        $('schoolBrand').textContent = data.school_name;
+        document.title = data.school_name;
+        message.className = 'alert alert-success';
+        message.textContent = 'School settings saved. Existing accounts keep their login IDs.';
+      } catch (error) {
+        message.className = 'alert alert-danger';
+        message.textContent = error.message;
+      } finally { button.disabled = false; }
+    });
+  } catch (error) { pc().textContent = error.message; }
+}

@@ -1,5 +1,41 @@
 from rest_framework import serializers
-from .models import CustomUser, Teacher, Student, Admin, SchoolImage
+from .models import CustomUser, Teacher, Student, Admin, SchoolImage, SchoolConfiguration
+from .validators import validate_account_id, validate_account_suffix
+from rest_framework.validators import UniqueValidator
+from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
+
+
+class SchoolAccountField(serializers.CharField):
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        if '@' not in value:
+            value = f'{value}@{SchoolConfiguration.current().account_suffix}'
+        local, domain = value.rsplit('@', 1)
+        value = local + '@' + domain.lower()
+        try:
+            validate_account_id(value)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages)
+        if len(value) > 150:
+            raise serializers.ValidationError('Login ID must be at most 150 characters.')
+        return value
+
+
+class SchoolConfigurationSerializer(serializers.ModelSerializer):
+    school_name = serializers.CharField(max_length=150)
+    account_suffix = serializers.CharField(max_length=100, validators=[validate_account_suffix])
+
+    class Meta:
+        model = SchoolConfiguration
+        fields = ['school_name', 'account_suffix']
+
+    def to_internal_value(self, data):
+        data = data.copy()
+        if isinstance(data.get('account_suffix'), str):
+            data['account_suffix'] = data['account_suffix'].strip().lower()
+        return super().to_internal_value(data)
+
 
 
 def _pop_user_fields(validated_data):
@@ -18,7 +54,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ['id', 'email', 'username', 'first_name', 'last_name', 'phone_number',
                   'role', 'password', 'is_active', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'email', 'username', 'role', 'is_active']
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
@@ -32,7 +68,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
 class TeacherSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
     # Write-only fields for creation
-    email = serializers.EmailField(write_only=True, required=False)
+    email = SchoolAccountField(write_only=True, validators=[UniqueValidator(queryset=CustomUser.objects.all())])
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False)
     password = serializers.CharField(write_only=True, required=False)
@@ -44,6 +80,7 @@ class TeacherSerializer(serializers.ModelSerializer):
                   'bio', 'hire_date', 'is_class_teacher', 'is_active']
         read_only_fields = ['id']
 
+    @transaction.atomic
     def create(self, validated_data):
         uf = _pop_user_fields(validated_data)
         user = CustomUser.objects.create_user(
@@ -58,7 +95,7 @@ class StudentSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
     class_assigned_name = serializers.CharField(source='class_assigned.name', read_only=True)
     # Write-only fields for creation
-    email = serializers.EmailField(write_only=True, required=False)
+    email = SchoolAccountField(write_only=True, validators=[UniqueValidator(queryset=CustomUser.objects.all())])
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False)
     password = serializers.CharField(write_only=True, required=False)
@@ -71,6 +108,7 @@ class StudentSerializer(serializers.ModelSerializer):
                   'address', 'is_active']
         read_only_fields = ['id']
 
+    @transaction.atomic
     def create(self, validated_data):
         uf = _pop_user_fields(validated_data)
         user = CustomUser.objects.create_user(
@@ -101,11 +139,19 @@ class SchoolImageSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email = SchoolAccountField()
     password = serializers.CharField(write_only=True)
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
+    email = SchoolAccountField(validators=[UniqueValidator(queryset=CustomUser.objects.all())])
+
+    def validate_role(self, value):
+        request = self.context.get('request')
+        if value != 'student' and not (request and request.user.is_authenticated and request.user.role == 'admin'):
+            raise serializers.ValidationError('Only an administrator can assign this role.')
+        return value
+
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True, min_length=8)
 

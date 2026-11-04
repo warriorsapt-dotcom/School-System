@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 import uuid
+from .validators import validate_account_id, validate_account_suffix
 
 
 class CustomUserManager(BaseUserManager):
@@ -35,7 +36,7 @@ class CustomUser(AbstractUser):
     )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(unique=True)
+    email = models.CharField('email or school login ID', max_length=254, unique=True, validators=[validate_account_id])
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
@@ -155,3 +156,29 @@ class SchoolImage(models.Model):
         ordering = ['-created_at']
         verbose_name = 'School Image'
         verbose_name_plural = 'School Images'
+
+
+class SchoolConfiguration(models.Model):
+    """One school per installation; this does not introduce multi-school tenancy."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    school_name = models.CharField(max_length=150, default='School System')
+    account_suffix = models.CharField(max_length=100, default='school.com', validators=[validate_account_suffix], help_text='For example ksc or ktp. Used for new login IDs; this does not create email inboxes.')
+
+    class Meta:
+        verbose_name = 'School settings'
+        verbose_name_plural = 'School settings'
+        constraints = [models.CheckConstraint(check=models.Q(id=1), name='single_school_configuration')]
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        self.school_name = self.school_name.strip()
+        self.account_suffix = self.account_suffix.strip().lower()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    @classmethod
+    def current(cls):
+        return cls.objects.filter(pk=1).first() or cls()
+
+    def __str__(self):
+        return self.school_name

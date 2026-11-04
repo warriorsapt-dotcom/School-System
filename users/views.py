@@ -68,7 +68,7 @@ class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = RegistrationSerializer(data=request.data)
+        serializer = RegistrationSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
@@ -215,3 +215,23 @@ class SchoolImageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
+
+
+class SchoolConfigurationView(APIView):
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsAdmin()]
+
+    def get(self, request):
+        from .models import SchoolConfiguration
+        from .serializers import SchoolConfigurationSerializer
+        return Response(SchoolConfigurationSerializer(SchoolConfiguration.current()).data)
+
+    def patch(self, request):
+        from .models import SchoolConfiguration
+        from .serializers import SchoolConfigurationSerializer
+        serializer = SchoolConfigurationSerializer(SchoolConfiguration.current(), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

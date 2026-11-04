@@ -21,3 +21,17 @@ admin.site.register(Teacher)
 admin.site.register(Student)
 admin.site.register(Admin)
 admin.site.register(SchoolImage)
+
+
+from .models import SchoolConfiguration
+
+
+@admin.register(SchoolConfiguration)
+class SchoolConfigurationAdmin(admin.ModelAdmin):
+    fields = ['school_name', 'account_suffix']
+
+    def has_add_permission(self, request):
+        return super().has_add_permission(request) and not SchoolConfiguration.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

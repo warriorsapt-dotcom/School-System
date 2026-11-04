@@ -65,6 +65,9 @@ const API = (() => {
   return {
     getUser, setSession, clearSession, json,
 
+    schoolSettings: () => req('GET', '/school-settings/'),
+    updateSchoolSettings: data => req('PATCH', '/school-settings/', data),
+
     /* auth */
     login:          (email, password) => fetch(`${BASE}/auth/login/`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email,password}) }),
     logout:         async () => { await req('POST','/auth/logout/',{refresh_token:getRefresh()}); clearSession(); },
