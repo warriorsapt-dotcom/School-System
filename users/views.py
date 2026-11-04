@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from django.db.models import Q
+from rest_framework import serializers
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
@@ -173,7 +175,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             try:
                 teacher = self.request.user.teacher_profile
                 class_ids = teacher.teaching_assignments.values_list('class_obj_id', flat=True)
-                qs = qs.filter(class_assigned__in=class_ids)
+                qs = qs.filter(Q(class_assigned__in=class_ids) | Q(class_assigned__class_teacher=teacher))
             except Exception:
                 return qs.none()
         return qs.all()
@@ -181,7 +183,37 @@ class StudentViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
             return [IsAdmin()]
+        if self.action == 'attendance_history':
+            return [permissions.IsAuthenticated(), IsTeacherOrAdmin()]
         return super().get_permissions()
+
+    @action(detail=True, methods=['get'])
+    def attendance_history(self, request, pk=None):
+        from attendance.models import Attendance
+        from attendance.serializers import AttendanceSerializer
+
+        student = self.get_object()
+
+        class HistoryFilters(serializers.Serializer):
+            start_date = serializers.DateField(required=False)
+            end_date = serializers.DateField(required=False)
+            status = serializers.ChoiceField(choices=Attendance.STATUS_CHOICES, required=False)
+
+            def validate(self, data):
+                if data.get('start_date') and data.get('end_date') and data['start_date'] > data['end_date']:
+                    raise serializers.ValidationError('Start date must be on or before end date.')
+                return data
+
+        filters = HistoryFilters(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        qs = student.attendance_records.select_related('student__user', 'class_obj', 'teacher__user', 'term').order_by('-date', '-pk')
+        for key, lookup in [('start_date', 'date__gte'), ('end_date', 'date__lte'), ('status', 'status')]:
+            if key in filters.validated_data:
+                qs = qs.filter(**{lookup: filters.validated_data[key]})
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(AttendanceSerializer(page, many=True).data)
+        return Response(AttendanceSerializer(qs, many=True).data)
 
     @action(detail=True, methods=['get'])
     def results(self, request, pk=None):

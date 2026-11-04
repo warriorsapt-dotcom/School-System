@@ -318,6 +318,7 @@ async function renderTeacherStudents() {
                       onclick="openStudentDetail('${s.id}','${(s.user?.first_name + ' ' + s.user?.last_name).replace(/'/g,"\\'")}')">
                       <i class="fas fa-eye me-1"></i>View Details
                     </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="openAttendanceHistory('${s.id}')">Attendance History</button>
                   </td>
                 </tr>`).join('')}
             </tbody>
@@ -576,6 +577,7 @@ async function renderAttendance() {
         <div>
           <div class="att-student-name">${s.user?.first_name} ${s.user?.last_name}</div>
           <div class="att-id">${s.admission_number}</div>
+          <button type="button" class="btn btn-link btn-sm px-0" onclick="openAttendanceHistory('${s.id}')">Attendance History</button>
         </div>
         <div class="d-flex gap-1 flex-wrap justify-content-end">
           ${statuses.map(st => `
@@ -611,6 +613,65 @@ async function renderAttendance() {
     $('saveAttBtn')?.addEventListener('click', saveAttendance);
   });
 }
+
+window.openAttendanceHistory = (studentId) => {
+  openModal('Student Attendance History', `
+    <form id="historyFilters" class="row g-2 mb-3">
+      <div class="col-sm-4"><label for="historyStart" class="form-label">From</label><input id="historyStart" type="date" class="form-control"></div>
+      <div class="col-sm-4"><label for="historyEnd" class="form-label">To</label><input id="historyEnd" type="date" class="form-control"></div>
+      <div class="col-sm-4"><label for="historyStatus" class="form-label">Status</label><select id="historyStatus" class="form-select">
+        <option value="">All statuses</option><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option><option value="excused">Excused</option><option value="medical">Medical leave</option>
+      </select></div>
+      <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">Apply filters</button> <button class="btn btn-outline-secondary btn-sm" type="reset">Reset</button></div>
+    </form>
+    <div id="historyRecords" aria-live="polite"></div>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <button id="historyPrev" class="btn btn-outline-primary btn-sm">Previous</button>
+      <span id="historyCount"></span>
+      <button id="historyNext" class="btn btn-outline-primary btn-sm">Next</button>
+    </div>`, null);
+  const form = $('historyFilters'), records = $('historyRecords');
+  const prev = $('historyPrev'), next = $('historyNext'), count = $('historyCount');
+  let page = 1, requestId = 0, filters = {};
+  const escape = value => { const el = document.createElement('span'); el.textContent = value ?? '—'; return el.innerHTML; };
+  async function load(targetPage) {
+    const currentRequest = ++requestId;
+    records.textContent = 'Loading attendance history…';
+    prev.disabled = next.disabled = true;
+    count.textContent = '';
+    try {
+      const response = await API.studentAttendance(studentId, { ...filters, page: targetPage });
+      if (!response?.ok) throw new Error('Unable to load attendance history. Check your class access and try again.');
+      const data = await API.json(response);
+      if (currentRequest !== requestId || !records.isConnected) return;
+      page = targetPage;
+      records.innerHTML = data.results.length ? table(
+        ['Date', 'Class', 'Status', 'Term', 'Marked by', 'Remarks'],
+        data.results.map(r => [r.date, r.class_name, r.status, r.term_name, r.teacher_name || '—', r.remarks || '—'].map(escape))
+      ) : empty('No attendance records match these filters.');
+      if (data.results.length) $('modalTitle').textContent = `Attendance History — ${data.results[0].student_name}`;
+      count.textContent = `${data.count} records · Page ${page}`;
+      prev.disabled = !data.previous;
+      next.disabled = !data.next;
+    } catch (error) {
+      if (currentRequest === requestId && records.isConnected) records.textContent = error.message;
+    }
+  }
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const start = $('historyStart').value, end = $('historyEnd').value;
+    if (start && end && start > end) { toast('From date must be on or before To date.', 'warning'); return; }
+    filters = {};
+    if (start) filters.start_date = start;
+    if (end) filters.end_date = end;
+    if ($('historyStatus').value) filters.status = $('historyStatus').value;
+    load(1);
+  });
+  form.addEventListener('reset', () => { filters = {}; load(1); });
+  prev.onclick = () => load(page - 1);
+  next.onclick = () => load(page + 1);
+  load(1);
+};
 
 window.markAll = (status) => {
   (window._attStudents||[]).forEach(s => {

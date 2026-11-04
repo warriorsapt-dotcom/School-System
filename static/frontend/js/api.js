@@ -77,6 +77,7 @@ const API = (() => {
 
     /* students */
     getStudents:       p    => req('GET',  '/users/students/', null, p),
+    studentAttendance: (id, p) => req('GET', `/users/students/${id}/attendance_history/`, null, p),
     getStudent:        id   => req('GET',  `/users/students/${id}/`),
     createStudent:     data => req('POST', '/users/students/', data),
     studentResults:    (id,p)=> req('GET', `/users/students/${id}/results/`, null, p),
