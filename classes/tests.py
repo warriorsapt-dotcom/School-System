@@ -96,3 +96,44 @@ class ClassPerformanceTests(APITestCase):
         student = res.data['students'][0]
         self.assertAlmostEqual(float(student['average_percentage']), 80.0, places=1)
         self.assertIn('Mathematics', student['subjects'])
+
+
+class ClassSubjectSelectionTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(email='admin@subject.test', username='subject-admin', password='Test123!', role='admin')
+        self.client.force_authenticate(self.admin)
+        self.cls = Class.objects.create(name='Form 3A', form_level=3, year=2026)
+        self.subject = Subject.objects.create(name='Mathematics', code='MATH')
+        self.assignment = ClassSubject.objects.create(class_obj=self.cls, subject=self.subject, academic_year='2026/2027')
+        user = User.objects.create_user(email='irene@subject.test', username='irene', password='Test123!', role='student')
+        self.student = Student.objects.create(user=user, admission_number='ADM020', class_assigned=self.cls)
+        self.term = Term.objects.create(name='first', academic_year='2026/2027', start_date='2026-01-08', end_date='2026-04-12', is_current=True)
+
+    def test_class_detail_returns_subject_ids_for_score_form(self):
+        response = self.client.get(f'/api/v1/classes/{self.cls.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['class_subjects']), 1)
+        assignment = response.data['class_subjects'][0]
+        self.assertEqual(str(assignment['id']), str(self.assignment.pk))
+        self.assertEqual(str(assignment['subject']), str(self.subject.pk))
+        self.assertEqual(assignment['subject_name'], 'Mathematics')
+        self.assertEqual(len(response.data['students']), 1)
+
+    def test_empty_class_returns_empty_list(self):
+        empty = Class.objects.create(name='Form 2B', form_level=2, year=2026)
+        response = self.client.get(f'/api/v1/classes/{empty.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['class_subjects'], [])
+
+    def test_class_subject_response_can_be_used_to_record_score(self):
+        detail = self.client.get(f'/api/v1/classes/{self.cls.pk}/').data
+        assignment = detail['class_subjects'][0]
+        response = self.client.post('/api/v1/scores/', {
+            'student': str(self.student.pk), 'class_subject': assignment['id'],
+            'subject': assignment['subject'], 'assessment_type': 'exam',
+            'marks_obtained': '78', 'max_marks': '100', 'term': str(self.term.pk),
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        score = Score.objects.get(pk=response.data['id'])
+        self.assertEqual(score.subject, self.subject)
+        self.assertEqual(score.percentage, 78)

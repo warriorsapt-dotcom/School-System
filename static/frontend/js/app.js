@@ -797,6 +797,7 @@ window.openRecordScore = async () => {
             <option value="">Select class first…</option>
           </select>
           <input type="hidden" name="subject" id="scoreSubjectHidden">
+          <div id="scoreSubjectHelp" class="form-text" role="status" aria-live="polite"></div>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-semibold">Assessment Type</label>
@@ -826,9 +827,11 @@ window.openRecordScore = async () => {
       </div>
     </form>`, async () => {
       const form = document.getElementById('scoreForm');
+      if (!form.reportValidity()) return;
       const fd = new FormData(form);
       const payload = Object.fromEntries(fd.entries());
       payload.subject = $('scoreSubjectHidden').value;
+      if (!payload.term) payload.term = null;
       if (!payload.class_subject || !payload.subject) {
         toast('Please select a class and subject.', 'warning'); return;
       }
@@ -843,19 +846,40 @@ window.openRecordScore = async () => {
       }
     });
 
+  let subjectRequest = 0;
   $('scoreClass').addEventListener('change', async function() {
+    const requestId = ++subjectRequest;
     const classId = this.value;
     const sel = $('scoreClassSubject');
-    sel.innerHTML = '<option value="">Loading…</option>';
+    const hidden = $('scoreSubjectHidden');
+    const help = $('scoreSubjectHelp');
+    hidden.value = '';
+    help.textContent = '';
+    sel.replaceChildren(new Option(classId ? 'Loading…' : 'Select class first…', ''));
     sel.disabled = true;
-    if (!classId) { sel.innerHTML = '<option value="">Select class first…</option>'; return; }
-    const detail = await API.json(await API.getClass(classId));
-    const classSubjects = detail?.class_subjects ?? [];
-    sel.innerHTML = classSubjects.length
-      ? `<option value="">Select subject…</option>` +
-        classSubjects.map(cs => `<option value="${cs.id}" data-subject="${cs.subject}">${cs.subject_name}</option>`).join('')
-      : `<option value="">No subjects assigned</option>`;
-    sel.disabled = false;
+    if (!classId) return;
+    try {
+      const response = await API.getClass(classId);
+      if (!response?.ok) throw new Error('Could not load subjects. Select the class again to retry.');
+      const detail = await API.json(response);
+      if (!Array.isArray(detail?.class_subjects)) throw new Error('The server returned an invalid subject list. Please contact the administrator.');
+      if (requestId !== subjectRequest || !sel.isConnected) return;
+      const classSubjects = detail.class_subjects;
+      sel.replaceChildren(new Option(classSubjects.length ? 'Select subject…' : 'No subjects assigned', ''));
+      for (const cs of classSubjects) {
+        const option = new Option(`${cs.subject_name} (${cs.academic_year})`, cs.id);
+        option.dataset.subject = cs.subject;
+        sel.add(option);
+      }
+      sel.disabled = !classSubjects.length;
+      if (!classSubjects.length) {
+        help.textContent = 'An administrator needs to assign subjects to this class under Django admin → Class Subjects.';
+      }
+    } catch (error) {
+      if (requestId !== subjectRequest || !sel.isConnected) return;
+      sel.replaceChildren(new Option('Unable to load subjects', ''));
+      help.textContent = error.message;
+    }
   });
 
   $('scoreClassSubject').addEventListener('change', function() {

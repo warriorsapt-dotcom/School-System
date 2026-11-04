@@ -41,6 +41,9 @@ class ClassDetailSerializer(ClassSerializer):
     students = StudentSerializer(many=True, read_only=True, source='students.all')
     class_subjects = ClassSubjectSerializer(many=True, read_only=True)
 
+    class Meta(ClassSerializer.Meta):
+        fields = ClassSerializer.Meta.fields + ['students', 'class_subjects']
+
 
 class TermSerializer(serializers.ModelSerializer):
     is_ongoing = serializers.SerializerMethodField()
