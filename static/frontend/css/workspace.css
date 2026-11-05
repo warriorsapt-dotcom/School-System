@@ -13,11 +13,21 @@ body { background:#fafafb; color:#282735; }
 .desk-intro h2 { font-size:clamp(1.55rem,2.6vw,2.2rem); font-weight:680; letter-spacing:-.04em; margin:0; }
 .desk-intro p,.workspace-meta,.workspace-empty { color:#60606e; }
 .desk-intro p { margin:.35rem 0 0; }
-.overview-metrics { margin:18px 0; }
+.overview-metrics {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));
+  gap:12px;
+  margin:18px 0;
+}
+.overview-stat { min-width:0; padding:clamp(14px,1.6vw,24px); }
 .overview-stat,.workspace-card,.desk-shortcuts { background:white; border:1px solid #e4e3eb; border-radius:12px; }
-.metric-label { color:#62606c; }
+.metric-label { display:flex; align-items:center; gap:8px; color:#62606c; font-size:.86rem; font-weight:500; }
 .metric-label i { color:#6b5a86; }
-.metric-value { color:#302c39; }
+.metric-value { margin-top:8px; color:#302c39; font-size:clamp(1.5rem,2.2vw,2.15rem); line-height:1.2; font-weight:650; }
+@media(max-width:768px) {
+  .overview-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .overview-stat:last-child:nth-child(odd) { grid-column:1/-1; }
+}
 .desk-panels { display:grid; grid-template-columns:1.35fr 1fr .9fr; gap:16px; align-items:stretch; }
 .workspace-card,.desk-shortcuts { padding:19px; min-width:0; }
 .desk-panels>.workspace-card:nth-child(3) { grid-column:1/3; grid-row:2; }
