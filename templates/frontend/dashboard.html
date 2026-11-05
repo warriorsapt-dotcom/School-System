@@ -4,10 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ school_config.school_name }}</title>
+  <script src="/static/frontend/js/theme.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="/static/frontend/css/style.css?v=metrics2">
   <link rel="stylesheet" href="/static/frontend/css/workspace.css?v=metrics2">
+  <link rel="stylesheet" href="/static/frontend/css/theme.css">
 </head>
 <body>
 
@@ -35,6 +37,7 @@
       <form id="moduleFinder" role="search"><i class="fas fa-search" aria-hidden="true"></i><input id="moduleSearch" type="search" list="moduleChoices" aria-label="Find a section" placeholder="Find a section…"><datalist id="moduleChoices"></datalist></form>
     </div>
     <div class="topbar-right">
+      {% include "frontend/theme_switch.html" %}
       <div class="user-badge">
         <div class="user-avatar" id="userAvatar">?</div>
         <div>
