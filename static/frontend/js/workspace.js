@@ -5,6 +5,7 @@ const modules = {
   notices: {label:'Notices', noun:'notice', icon:'fa-bullhorn', empty:'No notices published.'},
 };
 const weekdays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const workspaceLoadMessage = 'Could not load these records. Refresh the page to try again.';
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -61,7 +62,7 @@ async function fillWorkspaceOverview(container) {
       body.replaceChildren();
       data.results.slice(0,3).forEach(record=>body.append(workspaceRow(key,record,true)));
       if (!data.count) body.append(element('p','workspace-empty',modules[key].empty));
-    }).catch(error=>{body.textContent=error.message;});
+    }).catch(()=>{body.replaceChildren(element('p','workspace-empty',workspaceLoadMessage));});
   }
   const chart = workspaceCard('Weekly lessons','timetable');
   container.append(chart);
@@ -69,6 +70,10 @@ async function fillWorkspaceOverview(container) {
   try {
     const distribution = await workspaceData('timetable/distribution/');
     const total = distribution.reduce((n,r)=>n+r.total,0);
+    if (!total) {
+      chart.append(element('p','workspace-empty',modules.timetable.empty));
+      return;
+    }
     const colors = ['#554287','#9c89be','#657f86','#87a997','#caa765','#a67f84','#8794bc'];
     const ring = element('div','lesson-ring');
     let start = 0;
@@ -87,7 +92,7 @@ async function fillWorkspaceOverview(container) {
       entry.style.setProperty('--dot',colors[r.weekday-1]); legend.append(entry);
     }
     chart.append(legend);
-  } catch (error) { chart.append(element('p','workspace-empty',error.message)); }
+  } catch { chart.append(element('p','workspace-empty',workspaceLoadMessage)); }
 }
 async function fillDashboardActivity(container) {
   const scores = workspaceCard('Recent scores','scores');
@@ -109,8 +114,8 @@ async function fillDashboardActivity(container) {
       attendance.append(row);
     }
     if (!data.attendance.length) attendance.append(element('p','workspace-empty','No attendance marked today.'));
-  } catch(error) {
-    for (const panel of [scores,attendance]) panel.append(element('p','workspace-empty',error.message));
+  } catch {
+    for (const panel of [scores,attendance]) panel.append(element('p','workspace-empty',workspaceLoadMessage));
   }
 }
 async function renderWorkspace(key, page=1, filter='') {
@@ -157,7 +162,7 @@ async function renderWorkspace(key, page=1, filter='') {
       if(data.next) nav.append(actionButton('Next',()=>renderWorkspace(key,page+1,filter)));
       list.append(nav);
     }
-  } catch(error) { list.textContent=error.message; }
+  } catch { list.textContent=workspaceLoadMessage; }
 }
 async function editWorkspace(key,record,onSaved) {
   const form=element('form','workspace-editor');
@@ -208,7 +213,7 @@ async function editWorkspace(key,record,onSaved) {
       } else addField('message','Message','textarea');
     }
     if(form.isConnected) button.disabled=false;
-  } catch(error) {feedback.textContent=error.message;}
+  } catch {feedback.textContent=workspaceLoadMessage;}
   form.append(feedback);
 }
 function removeWorkspace(key,record,onSaved) {
