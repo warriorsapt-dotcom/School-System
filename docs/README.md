@@ -1,5 +1,7 @@
 # School Management Platform — Documentation
 
+For a fresh VMware installation, follow the [Kahuho VM setup guide](kahuho-vm-setup.md).
+
 A Django-based school management platform with a REST API and a plain HTML/CSS/JS
 frontend. Django serves both the `/api/v1/` API and the frontend pages.
 
