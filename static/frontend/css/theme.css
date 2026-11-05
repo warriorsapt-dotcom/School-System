@@ -32,6 +32,16 @@ html[data-bs-theme=dark] {
 [data-bs-theme=dark] :is(.form-control,.form-select,.login-card .form-control) { border-color:#504b59; }
 [data-bs-theme=dark] :is(.form-control,.form-select):focus { border-color:var(--violet); box-shadow:0 0 0 3px #aa83ff33; }
 [data-bs-theme=dark] .bg-light { background-color:var(--raised)!important; }
+/* Headings use a deeper fill than primary-colored text and icons. */
+[data-bs-theme=dark] .card-header.bg-primary { --bs-primary-rgb:65,48,89; }
+[data-bs-theme=dark] .badge.bg-light.text-dark { color:var(--ink)!important; }
+[data-bs-theme=dark] .badge.bg-primary { color:#20172e; }
+.badge:is(.bg-warning,.bg-info) { color:#20202a; }
+[data-bs-theme=light] .text-warning { color:#795500!important; }
+[data-bs-theme=dark] .text-success { color:#82d5aa!important; }
+[data-bs-theme=dark] .text-danger { color:#ff9eac!important; }
+[data-bs-theme=light] .table th { color:#536278; }
+[data-bs-theme=dark] .btn-primary:hover { --bs-btn-hover-bg:#7651b8; }
 [data-bs-theme=dark] :is(.table,.table-light) { --bs-table-color:var(--ink); --bs-table-bg:var(--surface); --bs-table-border-color:var(--edge); --bs-table-hover-bg:#292630; --bs-table-hover-color:var(--ink); --bs-table-striped-color:var(--ink); }
 @media(max-width:600px) {
   .topbar { padding-inline:12px; gap:6px; }
