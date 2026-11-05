@@ -71,7 +71,7 @@ class LessonSerializer(serializers.ModelSerializer):
         if self.instance:
             overlaps = overlaps.exclude(pk=self.instance.pk)
         if overlaps.exists():
-            raise serializers.ValidationError('This class or teacher already has a lesson at that time.')
+            raise serializers.ValidationError('This class or teacher already has a lesson at that time.', code='overlap')
         return attrs
 
 

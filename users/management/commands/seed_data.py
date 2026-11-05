@@ -3,6 +3,7 @@ Seed the database with realistic test data.
 
 Usage:
     python manage.py seed_data           # create everything
+    python manage.py seed_data --timetable-only  # add lessons to existing demo classes
     python manage.py seed_data --clear   # wipe data first, then seed
 """
 
@@ -10,7 +11,7 @@ import random
 import datetime
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 
@@ -80,13 +81,19 @@ class Command(BaseCommand):
     help = 'Seed the database with realistic test data'
 
     def add_arguments(self, parser):
-        parser.add_argument(
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument('--timetable-only', action='store_true',
+                          help='Add only weekly lessons for the existing sample class assignments')
+        mode.add_argument(
             '--clear', action='store_true',
             help='Delete existing seeded data before inserting'
         )
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if options['timetable_only']:
+            self._create_timetable()
+            return
         if options['clear']:
             self._clear()
 
@@ -109,6 +116,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.MIGRATE_HEADING('-- Assigning teachers to subjects & classes...'))
         class_subjects = self._assign_teachers(classes, subjects, teachers)
+        self._create_timetable()
 
         self.stdout.write(self.style.MIGRATE_HEADING('-- Creating students...'))
         students = self._create_students(classes)
@@ -128,6 +136,48 @@ class Command(BaseCommand):
         ))
 
     # ── helpers ──────────────────────────────────────────────────────────
+
+    def _create_timetable(self):
+        from classes.models import ClassSubject, Lesson
+        from classes.workspace import LessonSerializer
+
+        year = datetime.date.today().year
+        class_names = [name for name, _, _ in CLASSES]
+        assignments = ClassSubject.objects.select_related('class_obj', 'subject').filter(
+            class_obj__name__in=class_names, class_obj__year=year,
+            academic_year=f'{year}/{year+1}', teacher__isnull=False,
+        )
+        by_class_subject = {(a.class_obj.name, a.subject.code): a for a in assignments}
+        if not by_class_subject:
+            raise CommandError('No sample class assignments found for this year. Run seed_data first.')
+
+        periods = [('08:00', '08:45'), ('08:50', '09:35'), ('10:00', '10:45'), ('10:50', '11:35')]
+        # History and geography share a teacher, so alternate them within one rotation slot.
+        rotation = ['MATH', 'ENG', 'BIO', 'CHEM', 'PHY', 'HIST', 'CS']
+        created = skipped = 0
+        for weekday in range(1, 6):
+            for period, (starts, ends) in enumerate(periods):
+                for index, name in enumerate(class_names):
+                    position = (weekday - 1) * len(periods) + period + index
+                    code = rotation[position % len(rotation)]
+                    if code == 'HIST' and (position // len(rotation)) % 2:
+                        code = 'GEO'
+                    assignment = by_class_subject.get((name, code))
+                    if not assignment or Lesson.objects.filter(
+                        assignment=assignment, weekday=weekday, starts=starts, ends=ends
+                    ).exists():
+                        skipped += 1
+                        continue
+                    lesson = LessonSerializer(data={'assignment': assignment.pk, 'weekday': weekday,
+                                                    'starts': starts, 'ends': ends, 'room': name})
+                    if not lesson.is_valid():
+                        if any(error.code == 'overlap' for error in lesson.errors.get('non_field_errors', [])):
+                            skipped += 1
+                            continue
+                        raise CommandError(str(lesson.errors))
+                    lesson.save()
+                    created += 1
+        self.stdout.write(f'Timetable: {created} lessons added; {skipped} existing, unavailable or conflicting slots skipped.')
 
     def _clear(self):
         from users.models import CustomUser
