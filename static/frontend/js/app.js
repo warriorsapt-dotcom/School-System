@@ -182,13 +182,7 @@ async function renderOverview() {
     </header>
     <div class="overview-metrics">${cardHtml}</div>
     <div class="desk-panels" id="workspaceOverview"></div>
-    ${attChartCard}
-    <section class="desk-shortcuts"><h3>Quick links</h3>
-      <div class="desk-link-list">
-        ${(NAV[role] || NAV.student).filter(n => !modules[n.section] && n.section !== 'overview').map(n => `
-          <button class="desk-link" onclick="navigate('${n.section}')"><i class="fas ${n.icon}"></i>${n.label}</button>`).join('')}
-      </div>
-    </section>`;
+    ${attChartCard}`;
   $('overviewGreeting').textContent = user.first_name ? `Welcome, ${user.first_name}.` : 'Welcome back.';
   $('overviewTerm').textContent = [$('schoolBrand').textContent, term?.academic_year].filter(Boolean).join(' · ');
   fillWorkspaceOverview($('workspaceOverview'));

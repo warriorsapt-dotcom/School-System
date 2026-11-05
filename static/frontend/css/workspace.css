@@ -20,7 +20,7 @@ body { background:#fafafb; color:#282735; }
   margin:18px 0;
 }
 .overview-stat { min-width:0; padding:clamp(14px,1.6vw,24px); }
-.overview-stat,.workspace-card,.desk-shortcuts { background:white; border:1px solid #e4e3eb; border-radius:12px; }
+.overview-stat,.workspace-card { background:white; border:1px solid #e4e3eb; border-radius:12px; }
 .metric-label { display:flex; align-items:center; gap:8px; color:#62606c; font-size:.86rem; font-weight:500; }
 .metric-label i { color:#6b5a86; }
 .metric-value { margin-top:8px; color:#302c39; font-size:clamp(1.5rem,2.2vw,2.15rem); line-height:1.2; font-weight:650; }
@@ -29,13 +29,13 @@ body { background:#fafafb; color:#282735; }
   .overview-stat:last-child:nth-child(odd) { grid-column:1/-1; }
 }
 .desk-panels { display:grid; grid-template-columns:1.35fr 1fr .9fr; gap:16px; align-items:stretch; }
-.workspace-card,.desk-shortcuts { padding:19px; min-width:0; }
+.workspace-card { padding:19px; min-width:0; }
 .desk-panels>.workspace-card:nth-child(3) { grid-column:1/3; grid-row:2; }
 .desk-panels>.workspace-card:nth-child(4) { grid-column:3; grid-row:1/3; }
-.workspace-heading,.workspace-actions,.workspace-row,.workspace-filter,.desk-link-list,.week-legend { display:flex; align-items:center; gap:10px; }
+.workspace-heading,.workspace-actions,.workspace-row,.workspace-filter,.week-legend { display:flex; align-items:center; gap:10px; }
 .workspace-heading { justify-content:space-between; margin-bottom:12px; }
-.workspace-heading h3,.desk-shortcuts h3 { font-weight:650; font-size:1.02rem; margin:0; }
-.text-action,.desk-link { border:0; background:transparent; color:#51466b; }
+.workspace-heading h3 { font-weight:650; font-size:1.02rem; margin:0; }
+.text-action { border:0; background:transparent; color:#51466b; }
 .text-action { font-size:.82rem; white-space:nowrap; }
 .text-action:hover,.workspace-title:is(a):hover { text-decoration:underline; }
 .workspace-row { padding:10px 0; border-bottom:1px solid #eeedf1; }
@@ -50,12 +50,9 @@ body { background:#fafafb; color:#282735; }
 .lesson-ring { width:min(155px,90%); aspect-ratio:1; border-radius:50%; display:grid;place-items:center; background:#eeedf2; margin:22px auto 16px; }
 .ring-center { display:grid; align-content:center; text-align:center; width:78%; height:78%; background:white; border-radius:50%; }
 .ring-center strong { font-size:1.8rem; } .ring-center small { color:#62606c; }
-.week-legend,.desk-link-list,.workspace-actions { flex-wrap:wrap; }
+.week-legend,.workspace-actions { flex-wrap:wrap; }
 .week-legend { justify-content:center; font-size:.76rem; }
 .week-legend span:before { content:'';display:inline-block;background:var(--dot);width:8px;height:8px;border-radius:50%;margin-right:4px; }
-.desk-shortcuts { margin-top:16px; } .desk-link-list { margin-top:12px; }
-.desk-link { background:#f5f4f8; padding:7px 11px; border-radius:7px; font-size:.86rem; } .desk-link i { margin-right:7px; }
-.desk-link:hover { background:#ece9f2; }
 .workspace-editor { display:grid;gap:10px; } .workspace-editor label { font-weight:600; } .workspace-editor label>* { margin-top:4px; font-weight:400; }
 .workspace-filter { margin-bottom:16px; max-width:420px; }
 .desk-panels>.workspace-card:nth-child(5) { grid-column:span 2; }
