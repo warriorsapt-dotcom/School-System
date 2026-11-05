@@ -55,6 +55,13 @@ body { background:#fafafb; color:#282735; }
 .week-legend span:before { content:'';display:inline-block;background:var(--dot);width:8px;height:8px;border-radius:50%;margin-right:4px; }
 .workspace-editor { display:grid;gap:10px; } .workspace-editor label { font-weight:600; } .workspace-editor label>* { margin-top:4px; font-weight:400; }
 .workspace-filter { margin-bottom:16px; max-width:420px; }
+.schedule-filters { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.schedule-filters select { margin-top:4px; }
+.schedule-table { margin:0; width:100%; }
+.schedule-table caption { color:inherit; font-size:1.1rem; font-weight:600; }
+.schedule-table th,.schedule-table td { padding:10px; vertical-align:top; border:1px solid var(--bs-border-color); }
+.schedule-table tbody th { white-space:nowrap; }
+.schedule-table td { min-width:110px; }
 .desk-panels>.workspace-card:nth-child(5) { grid-column:span 2; }
 .score-mark { color:#4b4264; background:#f1eff7; padding:3px 9px; border-radius:6px; font-size:.85rem; }
 @media(max-width:1150px) { .desk-panels { grid-template-columns:repeat(2,minmax(0,1fr)); } .desk-panels>.workspace-card:nth-child(n) { grid-column:auto;grid-row:auto; } }

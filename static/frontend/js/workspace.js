@@ -118,7 +118,89 @@ async function fillDashboardActivity(container) {
     for (const panel of [scores,attendance]) panel.append(element('p','workspace-empty',workspaceLoadMessage));
   }
 }
+function weeklyTable(schedule, lessons, day, reload) {
+  const table = element('table','table schedule-table');
+  table.append(element('caption','caption-top',schedule.name + ' · ' + schedule.year));
+  const days = day ? [Number(day)] : weekdays.map((_, i) => i+1)
+    .filter(d => d <= 5 || lessons.some(lesson => lesson.weekday === d));
+  const header = table.createTHead().insertRow();
+  for (const label of ['Time', ...days.map(d => weekdays[d-1])]) {
+    const th = element('th','',label); th.scope = 'col'; header.append(th);
+  }
+  const periods = new Map();
+  for (const lesson of lessons) {
+    const slot = lesson.starts + '–' + lesson.ends;
+    if (!periods.has(slot)) periods.set(slot,new Map());
+    periods.get(slot).set(lesson.weekday,lesson);
+  }
+  const body = table.createTBody();
+  for (const slot of [...periods.keys()].sort()) {
+    const row = body.insertRow();
+    const time = element('th','',slot.split('–').map(t=>t.slice(0,5)).join('–'));
+    time.scope='row'; row.append(time);
+    for (const d of days) {
+      const cell = row.insertCell();
+      const lesson = periods.get(slot).get(d);
+      if (!lesson) { cell.textContent='—'; continue; }
+      cell.append(element('strong','',lesson.subject_name));
+      if (lesson.room) cell.append(element('small','workspace-meta',lesson.room));
+      if (user.role==='admin') {
+        const actions = element('div','workspace-actions mt-2');
+        actions.append(actionButton('Edit',()=>editWorkspace('timetable',lesson,reload)),
+          actionButton('Delete',()=>removeWorkspace('timetable',lesson,reload),'btn btn-sm btn-outline-danger'));
+        cell.append(actions);
+      }
+    }
+  }
+  return table;
+}
+
+async function renderTimetable(selected='', day='') {
+  setTitle('Timetable');
+  const section = element('section','workspace-section');
+  const header = element('div','section-header');
+  header.append(element('h2','','Timetable'));
+  const reload = () => renderTimetable(selected,day);
+  if (user.role==='admin') header.append(actionButton('Add lesson',()=>editWorkspace('timetable',null,reload),'btn btn-primary'));
+  const filters = element('div','schedule-filters');
+  const panel = element('div','workspace-card table-responsive','Loading…');
+  section.append(header,filters,panel); pc().replaceChildren(section);
+  try {
+    const schedules = await workspaceData('timetable/schedules/');
+    if (!schedules.length) { panel.textContent=modules.timetable.empty; return; }
+    const classes = element('select','form-select');
+    classes.setAttribute('aria-label','Class and academic year');
+    const classLabel = element('label','form-label','Class and academic year');
+    classLabel.append(classes);
+    for (const schedule of schedules) classes.add(new Option(schedule.name+' · '+schedule.year, schedule.class_id+'|'+schedule.year));
+    if (schedules.some(s=>s.class_id+'|'+s.year===selected)) classes.value=selected;
+    selected=classes.value;
+    const daySelect = element('select','form-select');
+    daySelect.setAttribute('aria-label','Day');
+    const dayLabel = element('label','form-label','Day');
+    dayLabel.append(daySelect);
+    daySelect.add(new Option('All days',''));
+    weekdays.forEach((label,i)=>daySelect.add(new Option(label,i+1)));
+    daySelect.value=day;
+    filters.append(classLabel,dayLabel);
+    classes.onchange=()=>renderTimetable(classes.value,day);
+    daySelect.onchange=()=>renderTimetable(selected,daySelect.value);
+    const schedule = schedules[classes.selectedIndex];
+    const lessons=[];
+    let page=1, data;
+    do {
+      if (!section.isConnected) return;
+      data=await workspaceData('timetable/',{assignment__class_obj:schedule.class_id,
+        assignment__academic_year:schedule.year, weekday:day||null, page:page++});
+      lessons.push(...data.results);
+    } while (data.next);
+    if (lessons.length) panel.replaceChildren(weeklyTable(schedule,lessons,day,reload));
+    else panel.textContent='No lessons scheduled for this selection.';
+  } catch { panel.textContent=workspaceLoadMessage; }
+}
+
 async function renderWorkspace(key, page=1, filter='') {
+  if (key==='timetable') return renderTimetable();
   const config=modules[key];
   setTitle(config.label);
   const section=element('section','workspace-section');
@@ -127,22 +209,15 @@ async function renderWorkspace(key, page=1, filter='') {
   if (user.role === 'admin') head.append(actionButton('Add '+config.noun,()=>editWorkspace(key,null,()=>renderWorkspace(key,1,filter)),'btn btn-primary'));
   section.append(head);
   const form=element('form','workspace-filter');
-  let input;
-  if (key==='timetable') {
-    input=element('select','form-select'); input.add(new Option('All days',''));
-    weekdays.forEach((day,i)=>input.add(new Option(day,i+1)));
-    input.onchange=()=>renderWorkspace(key,1,input.value);
-  } else {
-    input=element('input','form-control'); input.type='search'; input.placeholder='Search '+config.label.toLowerCase();
-  }
-  input.setAttribute('aria-label',key==='timetable'?'Filter by day':'Search '+config.label);
+  const input=element('input','form-control'); input.type='search'; input.placeholder='Search '+config.label.toLowerCase();
+  input.setAttribute('aria-label','Search '+config.label);
   input.value=filter; form.append(input);
-  if (key!=='timetable') form.append(element('button','btn btn-outline-primary','Search'));
+  form.append(element('button','btn btn-outline-primary','Search'));
   form.onsubmit=e=>{e.preventDefault();renderWorkspace(key,1,input.value);};
   section.append(form);
   const list=element('div','workspace-card','Loading…');section.append(list);pc().replaceChildren(section);
   try {
-    const data=await workspaceData(key+'/',{page,[key==='timetable'?'weekday':'search']:filter||null});
+    const data=await workspaceData(key+'/',{page,search:filter||null});
     list.replaceChildren();
     data.results.forEach(record=>{
       const row=workspaceRow(key,record,false);

@@ -78,7 +78,7 @@ class LessonSerializer(serializers.ModelSerializer):
 class LessonViewSet(viewsets.ModelViewSet):
     permission_classes = [SchoolContentPermission]
     serializer_class = LessonSerializer
-    filterset_fields = ['weekday', 'assignment__class_obj']
+    filterset_fields = ['weekday', 'assignment__class_obj', 'assignment__academic_year']
 
     def get_queryset(self):
         qs = Lesson.objects.select_related('assignment__subject', 'assignment__class_obj')
@@ -96,6 +96,13 @@ class LessonViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
+
+    @action(detail=False)
+    def schedules(self, request):
+        rows = self.get_queryset().values_list(
+            'assignment__class_obj_id', 'assignment__class_obj__name', 'assignment__academic_year'
+        ).order_by('-assignment__academic_year', 'assignment__class_obj__name').distinct()
+        return Response([{'class_id': pk, 'name': name, 'year': year} for pk, name, year in rows])
 
     @action(detail=False)
     def distribution(self, request):
