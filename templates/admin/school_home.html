@@ -1,0 +1,32 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+{% block bodyclass %}{{ block.super }} school-admin-home{% endblock %}
+{% block extrahead %}{{ block.super }}<script defer src="{% static 'frontend/js/admin-directory.js' %}"></script>{% endblock %}
+{% block content_title %}
+<header class="directory-heading">
+  <h1>School administration</h1>
+  {% if app_list %}<label hidden id="directory-filter">Find a record type
+    <input type="search" id="record-search" placeholder="Search students, classes…" aria-controls="record-directory">
+  </label>{% endif %}
+</header>
+{% endblock %}
+{% block content %}
+<div id="content-main">
+  <div id="record-directory">
+  {% for app in app_list %}
+    <section class="record-group" data-app="{{ app.name }}">
+      <h2><a href="{{ app.app_url }}">{{ app.name }}</a></h2>
+      <ul>
+        {% for model in app.models %}
+        <li data-record="{{ model.name }}">
+          {% if model.admin_url %}<a class="record-name" href="{{ model.admin_url }}">{{ model.name }}</a>{% else %}<span class="record-name">{{ model.name }}</span>{% endif %}
+          {% if model.add_url %}<a class="record-add" href="{{ model.add_url }}" aria-label="Add {{ model.name }}">+ Add</a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% empty %}<p>{% translate 'You don’t have permission to view or edit anything.' %}</p>{% endfor %}
+  </div>
+  <p id="directory-empty" role="status" hidden>No matching record types.</p>
+</div>
+{% endblock %}

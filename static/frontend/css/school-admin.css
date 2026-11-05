@@ -1,0 +1,34 @@
+:root {
+  --header-bg:#272233; --header-color:#f3effc; --header-branding-color:#fff;
+  --breadcrumbs-bg:#463952; --button-bg:#645283; --button-hover-bg:#50416b;
+  --default-button-bg:#584471; --default-button-hover-bg:#433456;
+}
+#header { background:#272233; }
+#header .school-brand { display:flex; align-items:center; gap:12px; color:#fff; font-size:1.08rem; font-weight:650; line-height:1.3; }
+.school-brand svg { width:36px; height:36px; flex-shrink:0; }
+.school-admin-home #content { box-sizing:border-box; width:100%; max-width:1560px; margin:0 auto; padding:clamp(18px,3vw,44px); display:grid; grid-template-columns:minmax(0,1fr) minmax(210px,270px); gap:20px; align-items:start; }
+.school-admin-home #content-main,.school-admin-home #content-related { float:none; width:auto; margin:0; min-width:0; }
+.school-admin-home #content>.clear { display:none; }
+.directory-heading { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:10px 0 16px; border-bottom:1px solid var(--border-color); }
+.directory-heading h1 { margin:0; color:var(--body-loud-color); font-size:clamp(1.7rem,3vw,2.6rem); font-weight:600; letter-spacing:-.045em; }
+#directory-filter { font-weight:600; font-size:.8rem; max-width:100%; }
+#record-search { box-sizing:border-box; display:block; margin:6px 0 0; width:260px; max-width:100%; border-radius:8px; padding:9px 12px; background:var(--body-bg); color:var(--body-fg); border:1px solid var(--border-color); }
+#record-directory { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
+.record-group,.school-admin-home #recent-actions-module { overflow:hidden; border:1px solid var(--border-color); border-radius:12px; background:var(--body-bg); }
+.record-group h2,.school-admin-home #recent-actions-module h2 { margin:0; background:var(--darkened-bg); color:var(--body-loud-color); font-size:1.04rem; font-weight:650; padding:16px; border-bottom:1px solid var(--border-color); letter-spacing:normal; text-transform:none; }
+.record-group h2 a { color:inherit; }
+.record-group h2 { display:flex; align-items:center; gap:10px; }
+.record-group h2::before { content:""; width:4px; height:1.1em; background:#a28bc6; border-radius:4px; }
+.school-admin-home .record-name { color:var(--body-fg); }
+.school-admin-home .record-name:hover { text-decoration:underline; }
+.record-group ul { margin:0; padding:0 14px; }
+.record-group li { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-bottom:1px solid var(--hairline-color); }
+.record-group li:last-child { border:0; }
+.record-name { font-weight:550; }
+.record-group .record-add { font-size:.78rem; border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; white-space:nowrap; color:var(--body-fg); }
+.school-admin-home #content-related { background:transparent; }
+.school-admin-home #recent-actions-module h3,.school-admin-home #recent-actions-module p,.school-admin-home #recent-actions-module ul { margin:14px 16px; padding:0; }
+.school-admin-home #recent-actions-module li { margin:12px 0; }
+.school-admin-home [hidden] { display:none!important; }
+@media(max-width:1050px) { .school-admin-home #content { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:650px) { #record-directory { grid-template-columns:minmax(0,1fr); } .directory-heading { align-items:flex-start; flex-direction:column; } }

@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'frontend/css/school-admin.css' %}">{% endblock %}
+{% block branding %}
+<div id="site-name"><a class="school-brand" href="{% url 'admin:index' %}">
+  <svg viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#614d88"/><path d="m5 15 13-6 13 6-13 6zM10 19v6q8 6 16 0v-6l-8 4z" fill="#f4ebff"/></svg>
+  {{ school_config.school_name|default:site_header }}
+</a></div>
+{% if user.is_anonymous %}{% include "admin/color_theme_toggle.html" %}{% endif %}
+{% endblock %}

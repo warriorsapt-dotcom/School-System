@@ -24,3 +24,4 @@ if settings.DEBUG:
 
 admin.site.site_header = 'School Management Platform'
 admin.site.site_title = 'School Admin'
+admin.site.index_template = 'admin/school_home.html'
