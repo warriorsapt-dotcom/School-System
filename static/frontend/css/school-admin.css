@@ -32,3 +32,50 @@
 .school-admin-home [hidden] { display:none!important; }
 @media(max-width:1050px) { .school-admin-home #content { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:650px) { #record-directory { grid-template-columns:minmax(0,1fr); } .directory-heading { align-items:flex-start; flex-direction:column; } }
+
+/* Administration pages share the same surfaces, typography and controls. */
+html { --admin-accent:#614785; --admin-tint:#eee9f5; --admin-line:#ddd8e4; }
+html[data-theme=dark] { --admin-accent:#cfb2ff; --admin-tint:#28232f; --admin-line:#403947; }
+@media(prefers-color-scheme:dark) {
+  html:not([data-theme=light]) { --admin-accent:#cfb2ff; --admin-tint:#28232f; --admin-line:#403947; }
+}
+#nav-sidebar { border-color:var(--admin-line); background:var(--body-bg); }
+#nav-sidebar .module { margin-bottom:12px; }
+#nav-sidebar .module caption, .module caption, .module h2, .inline-group h2, #changelist-filter h2 {
+  background:var(--admin-tint); color:var(--body-loud-color); font-weight:650;
+  text-transform:none; letter-spacing:normal; font-size:.92rem; padding:10px 14px;
+}
+.module caption a.section, #nav-sidebar .module caption a { color:var(--body-loud-color); }
+#nav-sidebar .current-model { background:var(--admin-tint); }
+#nav-sidebar a, #changelist a:not(.button), .section-model a, .breadcrumbs a:focus { text-decoration-thickness:1px; }
+#nav-sidebar th a, #changelist tbody th a, #changelist-filter a, .section-model a { color:var(--admin-accent); }
+#nav-filter { border:1px solid var(--admin-line); border-radius:7px; margin:10px 3%; width:94%; padding:8px; }
+#toggle-nav-sidebar { background:var(--darkened-bg); color:var(--admin-accent); border-color:var(--admin-line); }
+body:not(.school-admin-home):not(.login) #content>h1 { color:var(--body-loud-color); font-weight:600; letter-spacing:-.025em; font-size:clamp(1.45rem,2.5vw,2.05rem); }
+.school-section #content { box-sizing:border-box; max-width:1400px; margin:0 auto; width:100%; }
+.school-section .section-models { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr)); gap:16px; }
+.section-model { padding:20px; border:1px solid var(--admin-line); border-radius:12px; background:var(--darkened-bg); }
+.section-model h2 { margin:0 0 18px; font-size:1.12rem; }
+.section-model h2 a { color:var(--body-loud-color); }
+.model-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.model-actions .record-add { padding:5px 10px; border:1px solid var(--admin-line); border-radius:7px; }
+#changelist .changelist-form-container { min-width:0; }
+#changelist #toolbar, #changelist .actions, #changelist .paginator { padding:12px; background:var(--darkened-bg); }
+#changelist #toolbar { border-radius:10px 10px 0 0; }
+#changelist .results { border:1px solid var(--admin-line); border-radius:8px; overflow-x:auto; }
+#changelist #result_list th, #changelist #result_list td { padding:11px 12px; vertical-align:middle; }
+#changelist #result_list thead th { background:var(--admin-tint); color:var(--body-loud-color); }
+#changelist #result_list thead th .text a, #changelist #result_list thead th .text span { color:inherit; }
+#changelist #result_list tbody tr:hover { background:var(--admin-tint); }
+#changelist-filter { border:1px solid var(--admin-line); border-radius:10px; overflow:hidden; }
+#changelist-filter details { padding-bottom:6px; }
+.change-form fieldset.module, .inline-group, .submit-row, #change-history { border:1px solid var(--admin-line); border-radius:10px; }
+.change-form .form-row { padding:14px; }
+.change-form input:not([type=checkbox]):not([type=radio]), .change-form select, .change-form textarea, #toolbar input, .actions select { border-radius:6px; }
+.object-tools a:link,.object-tools a:visited { background-color:#584471; color:#fff; border-radius:8px; }
+.object-tools a:hover { background-color:#433456; }
+@media(max-width:767px) {
+  .school-section .section-models { grid-template-columns:1fr; }
+  #changelist .actions { box-sizing:border-box; width:100%; margin-inline:0; }
+  #changelist #result_list th, #changelist #result_list td { padding:8px; }
+}

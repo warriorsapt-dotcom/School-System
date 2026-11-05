@@ -1,0 +1,19 @@
+{% extends "admin/app_index.html" %}
+{% load i18n %}
+{% block bodyclass %}{{ block.super }} school-section{% endblock %}
+{% block content_title %}<h1>{{ title }}</h1>{% endblock %}
+{% block content %}
+<div id="content-main" class="section-models">
+  {% for app in app_list %}
+    {% for model in app.models %}
+      <section class="section-model">
+        <h2>{% if model.admin_url %}<a href="{{ model.admin_url }}">{{ model.name }}</a>{% else %}{{ model.name }}{% endif %}</h2>
+        <div class="model-actions">
+          {% if model.admin_url %}<a href="{{ model.admin_url }}">{% translate "View records" %}</a>{% endif %}
+          {% if model.add_url %}<a class="record-add" href="{{ model.add_url }}" aria-label="Add {{ model.name }}">+ {% translate "Add" %}</a>{% endif %}
+        </div>
+      </section>
+    {% endfor %}
+  {% endfor %}
+</div>
+{% endblock %}
