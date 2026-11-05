@@ -39,6 +39,21 @@ Reload the browser (Ctrl+Shift+R) so it fetches the updated JavaScript. No new P
 
 Migration `0002_alter_customuser_role` records the existing Principal role change. Migration `0003_school_configuration` adds the school configuration and changes the account identifier field without renaming existing accounts. If you previously generated a migration on the VM and Git reports a conflict, retain that file and inspect its contents/history before resolving it. Do not delete applied migration files or use `--fake` blindly.
 
+## Start automatically on the Ubuntu test VM
+
+Stop a manually started Django server with Ctrl+C. From the project directory, run
+`bash scripts/install-autostart.sh` as the usual school account. The installer
+uses the existing PostgreSQL setup, Tailscale address, and Python 3.12 virtual
+environment. It starts the service immediately and enables it for future VM boots.
+The Windows host must also start the VMware guest for the guest service to run.
+
+After code updates, apply any required migrations and run
+`sudo systemctl restart school-system`. Check boot status with
+`systemctl is-enabled school-system` and runtime status with
+`systemctl status school-system --no-pager`. View logs with
+`sudo journalctl -u school-system -b`. To return to manual startup,
+run `sudo systemctl disable --now school-system`.
+
 ## Access behaviour
 
 Only administrators can update school settings through the API. The school name and account suffix are public so the login page can display them. Profile updates cannot change roles, and public registration cannot grant privileged roles.
