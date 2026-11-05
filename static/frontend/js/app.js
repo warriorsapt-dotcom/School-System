@@ -139,9 +139,8 @@ async function renderOverview() {
 
   if (activeSection !== 'overview') return;
 
-  const termName = trmRes?.results?.[0]
-    ? `${trmRes.results[0].name.replace('_',' ')} ${trmRes.results[0].academic_year}`
-    : 'N/A';
+  const term = trmRes?.results?.[0];
+  const termName = term ? `${term.name.charAt(0).toUpperCase()}${term.name.slice(1)} term` : 'No active term';
 
   const cards = [];
   if (role !== 'student') cards.push({ icon:'fa-user-graduate', label:'Total Students', value: stuRes?.count ?? '—', bg:'#e9d8fd', color:'#6b21a8' });
@@ -150,14 +149,9 @@ async function renderOverview() {
   cards.push({ icon:'fa-calendar-days', label:'Current Term', value: termName, bg:'#feebc8', color:'#c05621' });
 
   const cardHtml = cards.map(c => `
-    <div class="col-md-3 col-sm-6 mb-4">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:${c.bg};color:${c.color}"><i class="fas ${c.icon}"></i></div>
-        <div class="stat-info">
-          <div class="stat-value">${c.value}</div>
-          <div class="stat-label">${c.label}</div>
-        </div>
-      </div>
+    <div class="overview-stat">
+      <div class="metric-label"><i class="fas ${c.icon}" aria-hidden="true"></i>${c.label}</div>
+      <div class="metric-value">${c.value}</div>
     </div>`).join('');
 
   // Compute student attendance counts for overview chart
@@ -168,41 +162,33 @@ async function renderOverview() {
   const attRate  = attTotal ? ((attCounts.present / attTotal) * 100).toFixed(1) : null;
 
   const attChartCard = (role === 'student' && attTotal > 0) ? `
-    <div class="col-md-6 mb-4">
+    <div class="overview-chart">
       <div class="card h-100">
         <div class="card-header"><i class="fas fa-chart-pie me-2"></i>My Attendance — ${attRate}% rate</div>
         <div class="card-body"><div style="position:relative;height:200px"><canvas id="overviewAttChart"></canvas></div></div>
       </div>
-    </div>` : `
-    <div class="col-md-6 mb-4">
-      <div class="card h-100">
-        <div class="card-header"><i class="fas fa-circle-info me-2"></i>Welcome</div>
-        <div class="card-body">
-          <p class="mb-1">Hello, <strong>${user.first_name} ${user.last_name}</strong>!</p>
-          <p class="text-muted small mb-0">Role: <span class="role-pill role-${role}">${role}</span></p>
-          <p class="text-muted small mb-0 mt-1">Active term: <strong>${termName}</strong></p>
-        </div>
-      </div>
-    </div>`;
+    </div>` : '';
 
   pc().innerHTML = `
-    <div class="row">${cardHtml}</div>
-    <div class="row mt-2">
-      <div class="col-md-6 mb-4">
-        <div class="card">
-          <div class="card-header"><i class="fas fa-clock-rotate-left me-2"></i>Quick Links</div>
-          <div class="card-body">
-            <div class="d-flex flex-wrap gap-2">
-              ${NAV[role].filter(n=>n.section!=='overview').map(n=>`
-                <button class="btn btn-outline-primary btn-sm" onclick="navigate('${n.section}')">
-                  <i class="fas ${n.icon} me-1"></i>${n.label}
-                </button>`).join('')}
-            </div>
-          </div>
-        </div>
+    <section class="overview-banner">
+      <p id="overviewSchool"></p>
+      <h2 id="overviewGreeting"></h2>
+      <span id="overviewTerm" class="banner-term"></span>
+    </section>
+    <div class="overview-metrics">${cardHtml}</div>
+    <section class="overview-links"><h2>Quick links</h2>
+      <div class="shortcut-grid">
+        ${NAV[role].filter(n => n.section !== 'overview').map(n => `
+          <button class="shortcut" onclick="navigate('${n.section}')">
+            <i class="shortcut-icon fas ${n.icon}" aria-hidden="true"></i>
+            <span>${n.label}</span><span class="shortcut-arrow" aria-hidden="true">↗</span>
+          </button>`).join('')}
       </div>
-      ${attChartCard}
-    </div>`;
+    </section>
+    ${attChartCard}`;
+  $('overviewSchool').textContent = $('schoolBrand').textContent;
+  $('overviewGreeting').textContent = user.first_name ? `Welcome, ${user.first_name}.` : 'Welcome back.';
+  $('overviewTerm').textContent = term ? `Academic year ${term.academic_year}` : '';
 
   // Render attendance donut chart for students
   if (role === 'student' && attTotal > 0) {

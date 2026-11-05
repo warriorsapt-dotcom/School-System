@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="200" viewBox="0 0 520 200" fill="none">
+  <defs><pattern id="windows" width="31" height="28" patternUnits="userSpaceOnUse"><path d="M5 4h15v16H5zM12.5 4v16M5 12h15" stroke="#b3d1b9" stroke-width="1.2"/></pattern></defs>
+  <circle cx="376" cy="67" r="46" fill="#eac584"/>
+  <path d="M0 163q87-52 163-20t145-15 212-19v91H0z" fill="#31675e"/>
+  <g stroke="#a7c9ae" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M91 177v-48h135v48m65 0v-48h140v48" fill="#366e61"/>
+    <path d="m81 129 20-21h122v21zm206 0v-21h127l26 21z" fill="#244e45"/>
+    <path d="M99 136h120v34H99zm204 0h120v34H303z" fill="url(#windows)" stroke="none"/>
+    <path d="M217 177v-63l42-29 42 29v63z" fill="#417a69"/>
+    <path d="m211 115 48-36 48 36-5 4-43-32-44 32z" fill="#264f48"/>
+    <path d="M248 177v-29a11 11 0 0 1 22 0v29m-11-35v35M259 79V47l22 6-22 8"/>
+    <circle cx="259" cy="111" r="8"/><path d="M259 106v5l4 2M216 178h86m-91 5h96m-103 5h111M38 178h166m109 0h171"/>
+    <path d="M65 177v-52m0 31-7-6m7-7 7-8m-8-40c-13 14-26 39-17 50 5 6 12 7 17 7s15-2 20-9c7-12-9-38-20-48zm392 82v-67m0 38-9-8m9-5 9-10m-9-45c-15 20-29 44-20 59 5 7 14 9 20 9s17-3 21-11c7-17-10-42-21-57z" fill="#396e5c"/>
+  </g>
+</svg>
