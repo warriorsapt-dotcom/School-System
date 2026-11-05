@@ -6,10 +6,19 @@ from .models import CustomUser, Teacher, Student, Admin, SchoolImage
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    list_display = ['email', 'first_name', 'last_name', 'role', 'is_active']
+    list_display = ['email', 'first_name', 'last_name', 'role', 'student_class', 'is_active']
+    list_select_related = ('student_profile__class_assigned',)
     list_filter = ['role', 'is_active']
     search_fields = ['email', 'first_name', 'last_name']
     ordering = ['email']
+
+    @admin.display(description='Class', ordering='student_profile__class_assigned__name', empty_value='—')
+    def student_class(self, user):
+        if user.role != 'student':
+            return None
+        profile = getattr(user, 'student_profile', None)
+        return profile.class_assigned.name if profile and profile.class_assigned_id else 'Unassigned'
+
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
