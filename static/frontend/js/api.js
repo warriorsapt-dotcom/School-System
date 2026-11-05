@@ -64,6 +64,7 @@ const API = (() => {
 
   return {
     getUser, setSession, clearSession, json,
+    workspace: (method, path, data, params) => req(method, '/' + path, data, params),
 
     schoolSettings: () => req('GET', '/school-settings/'),
     updateSchoolSettings: data => req('PATCH', '/school-settings/', data),

@@ -37,6 +37,11 @@ const NAV = {
   ],
 };
 
+for (const items of Object.values(NAV)) {
+  const entries = Object.entries(modules).map(([section, {icon, label}]) => ({section, icon, label}));
+  items.splice(items.findIndex(n => n.section === 'attendance'), 0, ...entries);
+}
+
 /* ── Helpers ── */
 const $  = id => document.getElementById(id);
 const pc = () => $('pageContent');
@@ -78,6 +83,8 @@ function openModal(title, body, onSave) {
   $('modalTitle').textContent = title;
   $('modalBody').innerHTML = body;
   const saveBtn = $('modalSave');
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save';
   if (onSave) {
     saveBtn.classList.remove('d-none');
     saveBtn.onclick = onSave;
@@ -170,25 +177,21 @@ async function renderOverview() {
     </div>` : '';
 
   pc().innerHTML = `
-    <section class="overview-banner">
-      <p id="overviewSchool"></p>
-      <h2 id="overviewGreeting"></h2>
-      <span id="overviewTerm" class="banner-term"></span>
-    </section>
+    <header class="desk-intro">
+      <h2 id="overviewGreeting"></h2><p id="overviewTerm"></p>
+    </header>
     <div class="overview-metrics">${cardHtml}</div>
-    <section class="overview-links"><h2>Quick links</h2>
-      <div class="shortcut-grid">
-        ${NAV[role].filter(n => n.section !== 'overview').map(n => `
-          <button class="shortcut" onclick="navigate('${n.section}')">
-            <i class="shortcut-icon fas ${n.icon}" aria-hidden="true"></i>
-            <span>${n.label}</span><span class="shortcut-arrow" aria-hidden="true">↗</span>
-          </button>`).join('')}
+    <div class="desk-panels" id="workspaceOverview"></div>
+    ${attChartCard}
+    <section class="desk-shortcuts"><h3>Quick links</h3>
+      <div class="desk-link-list">
+        ${(NAV[role] || NAV.student).filter(n => !modules[n.section] && n.section !== 'overview').map(n => `
+          <button class="desk-link" onclick="navigate('${n.section}')"><i class="fas ${n.icon}"></i>${n.label}</button>`).join('')}
       </div>
-    </section>
-    ${attChartCard}`;
-  $('overviewSchool').textContent = $('schoolBrand').textContent;
+    </section>`;
   $('overviewGreeting').textContent = user.first_name ? `Welcome, ${user.first_name}.` : 'Welcome back.';
-  $('overviewTerm').textContent = term ? `Academic year ${term.academic_year}` : '';
+  $('overviewTerm').textContent = [$('schoolBrand').textContent, term?.academic_year].filter(Boolean).join(' · ');
+  fillWorkspaceOverview($('workspaceOverview'));
 
   // Render attendance donut chart for students
   if (role === 'student' && attTotal > 0) {
@@ -1849,6 +1852,9 @@ async function renderClassPerformance() {
 
 /* ── Router ── */
 const SECTIONS = {
+  timetable: () => renderWorkspace('timetable'),
+  library: () => renderWorkspace('library'),
+  notices: () => renderWorkspace('notices'),
   school_settings:   renderSchoolSettings,
   overview:          renderOverview,
   class_performance: renderClassPerformance,
@@ -1931,6 +1937,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   user = storedUser;
   buildNav(user.role);
+  const menu = NAV[user.role] || NAV.student;
+  const search = $('moduleSearch');
+  const choices = $('moduleChoices');
+  menu.forEach(item => choices.append(new Option(item.label)));
+  $('moduleFinder').onsubmit = event => {
+    event.preventDefault();
+    const query = search.value.trim().toLowerCase();
+    const match = query && menu.find(item => item.label.toLowerCase().includes(query));
+    if (match) { search.value = ''; navigate(match.section); }
+    else { search.setCustomValidity('Enter a section from the list.'); search.reportValidity(); }
+  };
+  search.oninput = () => search.setCustomValidity('');
   updateTopbar(user);
 
   $('logoutBtn').addEventListener('click', async () => {

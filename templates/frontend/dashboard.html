@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="/static/frontend/css/style.css">
+  <link rel="stylesheet" href="/static/frontend/css/workspace.css">
 </head>
 <body>
 
@@ -31,6 +32,7 @@
     <div class="topbar-left">
       <button id="sidebarToggle" aria-label="Toggle navigation" aria-controls="sidebar"><i class="fas fa-bars" aria-hidden="true"></i></button>
       <h1 class="page-title" id="pageTitle">Dashboard</h1>
+      <form id="moduleFinder" role="search"><i class="fas fa-search" aria-hidden="true"></i><input id="moduleSearch" type="search" list="moduleChoices" aria-label="Find a section" placeholder="Find a section…"><datalist id="moduleChoices"></datalist></form>
     </div>
     <div class="topbar-right">
       <div class="user-badge">
@@ -83,6 +85,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {{ school_config.account_suffix|json_script:"schoolAccountSuffix" }}
 <script src="/static/frontend/js/api.js"></script>
+<script src="/static/frontend/js/workspace.js"></script>
 <script src="/static/frontend/js/app.js"></script>
 </body>
 </html>

@@ -67,6 +67,38 @@ class ClassSubject(models.Model):
         verbose_name_plural = 'Class Subjects'
 
 
+class Lesson(models.Model):
+    DAYS = [(1, 'Monday'), (2, 'Tuesday'), (3, 'Wednesday'), (4, 'Thursday'),
+            (5, 'Friday'), (6, 'Saturday'), (7, 'Sunday')]
+    assignment = models.ForeignKey(ClassSubject, on_delete=models.CASCADE)
+    weekday = models.PositiveSmallIntegerField(choices=DAYS)
+    starts = models.TimeField()
+    ends = models.TimeField()
+    room = models.CharField(max_length=80, blank=True)
+
+    class Meta:
+        ordering = ['weekday', 'starts', 'pk']
+        constraints = [models.CheckConstraint(check=models.Q(ends__gt=models.F('starts')), name='lesson_valid_times')]
+
+
+class LibraryResource(models.Model):
+    title = models.CharField(max_length=160)
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT)
+    url = models.URLField(max_length=1000)
+
+    class Meta:
+        ordering = ['title', 'pk']
+
+
+class Notice(models.Model):
+    title = models.CharField(max_length=160)
+    message = models.TextField()
+    published = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-published', '-pk']
+
+
 class Term(models.Model):
     TERM_CHOICES = (
         ('first', 'First Term'),
