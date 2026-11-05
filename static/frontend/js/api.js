@@ -39,13 +39,16 @@ const API = (() => {
     const url = new URL(BASE + endpoint, window.location.origin);
     Object.entries(params).forEach(([k, v]) => v != null && url.searchParams.set(k, v));
     const opts = { method, headers: authHeaders() };
-    if (body) opts.body = JSON.stringify(body);
+    if (body instanceof FormData) {
+      delete opts.headers['Content-Type'];
+      opts.body = body;
+    } else if (body) opts.body = JSON.stringify(body);
 
     let res = await fetch(url.toString(), opts);
     if (res.status === 401) {
       const ok = await doRefresh();
       if (ok) {
-        opts.headers = authHeaders();
+        opts.headers.Authorization = authHeaders().Authorization;
         res = await fetch(url.toString(), opts);
       } else {
         clearSession();

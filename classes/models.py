@@ -67,6 +67,19 @@ class ClassSubject(models.Model):
         verbose_name_plural = 'Class Subjects'
 
 
+class Assignment(models.Model):
+    title = models.CharField(max_length=180)
+    instructions = models.TextField(blank=True)
+    class_obj = models.ForeignKey(Class, on_delete=models.CASCADE)
+    teacher = models.ForeignKey('users.Teacher', on_delete=models.PROTECT)
+    published = models.DateTimeField(auto_now_add=True)
+    filename = models.CharField(max_length=255, blank=True)
+    attachment = models.BinaryField(null=True)
+
+    class Meta:
+        ordering = ['-published', '-pk']
+
+
 class Lesson(models.Model):
     DAYS = [(1, 'Monday'), (2, 'Tuesday'), (3, 'Wednesday'), (4, 'Thursday'),
             (5, 'Friday'), (6, 'Saturday'), (7, 'Sunday')]

@@ -39,6 +39,7 @@ const NAV = {
 
 for (const items of Object.values(NAV)) {
   const entries = Object.entries(modules).map(([section, {icon, label}]) => ({section, icon, label}));
+  entries.push({section:'assignments',icon:'fa-file-lines',label:'Assignments'});
   items.splice(items.findIndex(n => n.section === 'attendance'), 0, ...entries);
 }
 
@@ -1846,6 +1847,7 @@ async function renderClassPerformance() {
 
 /* ── Router ── */
 const SECTIONS = {
+  assignments: renderAssignments,
   timetable: () => renderWorkspace('timetable'),
   library: () => renderWorkspace('library'),
   notices: () => renderWorkspace('notices'),

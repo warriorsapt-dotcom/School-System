@@ -2,8 +2,10 @@ from rest_framework.routers import DefaultRouter
 from .views import ClassViewSet, SubjectViewSet, TermViewSet
 from django.urls import path
 from .workspace import DashboardActivity, LessonViewSet, LibraryViewSet, NoticeViewSet
+from .assignments import AssignmentViewSet
 
 router = DefaultRouter()
+router.register('assignments', AssignmentViewSet, basename='assignment')
 router.register('timetable', LessonViewSet, basename='lesson')
 router.register('library', LibraryViewSet)
 router.register('notices', NoticeViewSet)
