@@ -1565,7 +1565,7 @@ window.openAddStudent = async () => {
     const payload = Object.fromEntries([...fd.entries()].filter(([,v]) => v !== ''));
     const res = await API.createStudent(payload);
     if (res?.ok) {
-      toast('Student added successfully!');
+      toast('Student added with student access.');
       bsModal.hide();
       renderStudents();
     } else {
@@ -1619,7 +1619,7 @@ window.openAddTeacher = async () => {
     const payload = Object.fromEntries([...fd.entries()].filter(([,v]) => v !== ''));
     const res = await API.createTeacher(payload);
     if (res?.ok) {
-      toast('Teacher added successfully!');
+      toast('Teacher added with teacher access.');
       bsModal.hide();
       renderTeachers();
     } else {

@@ -5,6 +5,43 @@ from rest_framework import status
 User = get_user_model()
 
 
+class ProfileProvisioningTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser(email='head@example.com', username='head', password='TestPass123!')
+        self.client.force_login(self.admin)
+
+    def test_admin_profile_add_sets_access_on_first_login(self):
+        from classes.models import Class
+        school_class = Class.objects.create(name='Form 1', form_level=1)
+        cases = [
+            ('teacher', 'student', {'employee_id': 'T1'}),
+            ('student', 'teacher', {'admission_number': 'S1', 'class_assigned': school_class.pk}),
+        ]
+        for role, initial_role, fields in cases:
+            with self.subTest(role=role):
+                account = User.objects.create_user(email=f'{role}@example.com', username=role,
+                                                   role=initial_role, password='TestPass123!')
+                response = self.client.post(f'/admin/users/{role}/add/', {
+                    'user': account.pk, 'is_active': 'on', **fields,
+                })
+                self.assertEqual(response.status_code, 302)
+                login = self.client.post('/api/v1/auth/login/', {'email': account.email, 'password': 'TestPass123!'})
+                self.assertEqual(login.data['user']['role'], role)
+                self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + login.data['access'])
+                profile = getattr(account, f'{role}_profile')
+                url = f'/api/v1/users/{role}s/{profile.pk}/'
+                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assertEqual(self.client.patch(url, {'is_active': False}).status_code, 403)
+                self.client.credentials()
+
+    def test_privileged_account_cannot_be_linked_to_school_profile(self):
+        response = self.client.post('/admin/users/teacher/add/', {'user': self.admin.pk, 'employee_id': 'T1'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('user', response.context['adminform'].form.errors)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, 'admin')
+
+
 class AuthTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(

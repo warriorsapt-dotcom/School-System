@@ -133,7 +133,7 @@ class TeacherViewSet(viewsets.ModelViewSet):
     ordering_fields = ['user__first_name', 'hire_date']
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdmin()]
         return super().get_permissions()
 
@@ -171,6 +171,8 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Student.objects.select_related('user', 'class_assigned')
+        if self.request.user.role == 'student':
+            return qs.filter(user=self.request.user)
         if self.request.user.role == 'teacher':
             try:
                 teacher = self.request.user.teacher_profile
@@ -181,7 +183,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         return qs.all()
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdmin()]
         if self.action == 'attendance_history':
             return [permissions.IsAuthenticated(), IsTeacherOrAdmin()]
