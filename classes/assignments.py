@@ -4,6 +4,7 @@ from zipfile import BadZipFile, ZipFile
 
 from django.db.models import Q
 from django.http import FileResponse, Http404
+from django.utils import timezone
 from PIL import Image
 from rest_framework import mixins, permissions, serializers, viewsets
 from rest_framework.decorators import action
@@ -17,18 +18,24 @@ def teaching_classes(user):
 
 
 class AssignmentSerializer(serializers.ModelSerializer):
+    deadline = serializers.DateTimeField(required=True, allow_null=False)
     file = serializers.FileField(write_only=True, required=False, max_length=255)
     class_name = serializers.CharField(source='class_obj.name', read_only=True)
     teacher_name = serializers.CharField(source='teacher.user.get_full_name', read_only=True)
 
     class Meta:
         model = Assignment
-        fields = ['id', 'title', 'class_obj', 'class_name', 'instructions', 'teacher_name', 'published', 'filename', 'file']
+        fields = ['id', 'title', 'class_obj', 'class_name', 'instructions', 'teacher_name', 'published', 'deadline', 'filename', 'file']
         read_only_fields = ['filename', 'published']
 
     def validate_class_obj(self, value):
         if not teaching_classes(self.context['request'].user).filter(pk=value.pk).exists():
             raise serializers.ValidationError('Choose a class you teach.')
+        return value
+
+    def validate_deadline(self, value):
+        if value <= timezone.now():
+            raise serializers.ValidationError('Choose a deadline in the future.')
         return value
 
     def validate_file(self, file):
@@ -84,7 +91,9 @@ class AssignmentViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.R
         if self.action != 'download':
             qs = qs.defer('attachment')
         if user.role == 'student':
-            return qs.filter(class_obj__students__user=user)
+            return qs.filter(class_obj__students__user=user).filter(
+                Q(deadline__isnull=True) | Q(deadline__gt=timezone.now())
+            )
         if user.role == 'teacher':
             return qs.filter(class_obj__in=teaching_classes(user))
         return qs if user.role in ('admin', 'principal') else qs.none()

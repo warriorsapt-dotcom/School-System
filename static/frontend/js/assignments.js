@@ -1,4 +1,6 @@
+let assignmentExpiryTimer;
 async function renderAssignments(page=1) {
+  clearInterval(assignmentExpiryTimer);
   setTitle('Assignments');
   const section = element('section','workspace-section');
   const header = element('div','section-header');
@@ -14,18 +16,37 @@ async function renderAssignments(page=1) {
     list.replaceChildren();
     for (const item of data.results) {
       const row = element('article','workspace-row');
+      if (item.deadline) row.dataset.deadline = item.deadline;
       const content = element('div','workspace-copy');
       content.append(element('strong','workspace-title',item.title),
         element('small','workspace-meta',[item.class_name,item.teacher_name,new Date(item.published).toLocaleDateString()].join(' · ')));
+      if (item.deadline) {
+        const expired = new Date(item.deadline).getTime() <= Date.now();
+        content.append(element('small','workspace-meta',
+          (expired ? 'Closed · ' : 'Deadline · ') + new Date(item.deadline).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})));
+      }
       if (item.instructions) content.append(element('p','notice-body',item.instructions));
       if (item.filename) content.append(actionButton('Download '+item.filename,()=>downloadAssignment(item)));
       row.append(content); list.append(row);
     }
-    if (!data.count) list.append(element('p','workspace-empty','No assignments posted yet.'));
+    if (!data.count) list.append(element('p','workspace-empty','No assignments available.'));
     const nav = element('div','workspace-actions mt-3');
     if (data.previous) nav.append(actionButton('Previous',()=>renderAssignments(page-1)));
     if (data.next) nav.append(actionButton('Next',()=>renderAssignments(page+1)));
     if (nav.childElementCount) list.append(nav);
+    if (user.role === 'student') {
+      const hideExpired = () => {
+        if (!section.isConnected) { clearInterval(assignmentExpiryTimer); return; }
+        list.querySelectorAll('[data-deadline]').forEach(row => {
+          if (new Date(row.dataset.deadline).getTime() <= Date.now()) row.remove();
+        });
+        if (!list.querySelector('article') && !list.querySelector('.workspace-empty')) {
+          list.prepend(element('p','workspace-empty','No assignments available on this page.'));
+        }
+      };
+      hideExpired();
+      assignmentExpiryTimer = setInterval(hideExpired, 1000);
+    }
   } catch { list.textContent=workspaceLoadMessage; }
 }
 
@@ -45,6 +66,8 @@ async function openAssignmentForm() {
     <form id="assignmentForm" class="workspace-editor">
       <label>Class<select class="form-select" name="class_obj" required><option value="">Choose a class…</option></select></label>
       <label>Title<input class="form-control" name="title" maxlength="180" required></label>
+      <label>Deadline<input class="form-control" type="datetime-local" name="deadline" required></label>
+      <small class="workspace-meta">Use your device’s local time. Students will no longer see or download this assignment after the deadline.</small>
       <label>Instructions<textarea class="form-control" rows="5" name="instructions"></textarea></label>
       <label>Attachment<input class="form-control" type="file" name="file" accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.webp"></label>
       <small class="workspace-meta">Type instructions, attach a file, or do both. Word, PDF, JPEG, PNG or WebP, up to 10 MB.</small>
@@ -63,10 +86,13 @@ async function openAssignmentForm() {
   } catch {feedback.textContent=workspaceLoadMessage;}
   async function publish() {
     if (save.disabled || !form.reportValidity()) return;
+    const deadline = new Date(form.elements.deadline.value);
+    if (!Number.isFinite(deadline.getTime()) || deadline.getTime() <= Date.now()) {feedback.textContent='Choose a deadline in the future.';return;}
     const file=form.elements.file.files[0];
     if (!file && !form.elements.instructions.value.trim()) {feedback.textContent='Type instructions or choose a file.';return;}
     if (file && file.size>10*1024*1024) {feedback.textContent='Choose a file of 10 MB or less.';return;}
     const data=new FormData(form);
+    data.set('deadline', deadline.toISOString());
     if (!file) data.delete('file');
     save.disabled=true; feedback.textContent='Publishing…';
     try {

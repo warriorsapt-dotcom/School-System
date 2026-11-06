@@ -1,12 +1,15 @@
 from io import BytesIO
 from zipfile import ZipFile
+from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APITestCase
 
-from classes.models import Class
+from classes.models import Assignment, Class
 from users.models import Student, Teacher
 
 
@@ -24,7 +27,8 @@ class AssignmentTests(APITestCase):
         self.client.force_authenticate(self.teacher.user)
 
     def post(self, **fields):
-        data = {'class_obj':str(self.cls.pk), 'title':'Homework'}
+        data = {'class_obj':str(self.cls.pk), 'title':'Homework',
+                'deadline': (timezone.now() + timedelta(days=1)).isoformat()}
         data.update(fields)
         return self.client.post(self.url,data,format='multipart')
 
@@ -61,3 +65,31 @@ class AssignmentTests(APITestCase):
         for name in ['bad.docx','bad.png','bad.exe','bad.pdf']:
             self.assertEqual(self.post(file=SimpleUploadedFile(name,b'invalid')).status_code,400)
         self.assertEqual(self.post(file=SimpleUploadedFile('large.pdf',b'%PDF-'+bytes(10*1024*1024))).status_code,400)
+
+    def test_deadline_required_and_must_be_future(self):
+        response = self.client.post(self.url, {'class_obj':str(self.cls.pk), 'title':'Work', 'instructions':'Read.'})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('deadline', response.data)
+        self.assertEqual(self.post(instructions='Read.', deadline=(timezone.now()-timedelta(seconds=1)).isoformat()).status_code, 400)
+
+    def test_expiry_hides_list_detail_and_download_but_preserves_teacher_copy(self):
+        deadline = timezone.now() + timedelta(hours=1)
+        response = self.post(deadline=deadline.isoformat(), file=SimpleUploadedFile('work.pdf', b'%PDF-1.4\n%%EOF'))
+        self.assertEqual(response.status_code, 201)
+        detail = self.url + str(response.data['id']) + '/'
+        self.client.force_authenticate(self.student.user)
+        self.assertEqual(self.client.get(self.url).data['count'], 1)
+        with patch('classes.assignments.timezone.now', return_value=deadline):
+            self.assertEqual(self.client.get(self.url).data['count'], 0)
+            self.assertEqual(self.client.get(detail).status_code, 404)
+            self.assertEqual(self.client.get(detail+'download/').status_code, 404)
+            self.client.force_authenticate(self.teacher.user)
+            self.assertEqual(self.client.get(self.url).data['count'], 1)
+            self.assertEqual(self.client.get(detail).status_code, 200)
+            self.assertEqual(self.client.get(detail+'download/').status_code, 200)
+        self.assertTrue(Assignment.objects.filter(pk=response.data['id']).exists())
+
+    def test_existing_assignments_without_deadline_remain_visible(self):
+        Assignment.objects.create(title='Existing work', instructions='Read.', class_obj=self.cls, teacher=self.teacher)
+        self.client.force_authenticate(self.student.user)
+        self.assertEqual(self.client.get(self.url).data['count'], 1)

@@ -73,6 +73,7 @@ class Assignment(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE)
     teacher = models.ForeignKey('users.Teacher', on_delete=models.PROTECT)
     published = models.DateTimeField(auto_now_add=True)
+    deadline = models.DateTimeField(null=True, blank=True)
     filename = models.CharField(max_length=255, blank=True)
     attachment = models.BinaryField(null=True)
 
