@@ -126,6 +126,9 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.MIGRATE_HEADING('-- Recording scores...'))
         self._create_scores(students, class_subjects, term)
+        from scores.utils import ResultCalculation
+        result_count = sum(len(ResultCalculation.generate_term_results(cls, term)) for cls in classes)
+        self.stdout.write(f'  {result_count} term results generated')
 
         self.stdout.write(self.style.SUCCESS(
             f'\nSeeded: {len(subjects)} subjects, {len(classes)} classes, '

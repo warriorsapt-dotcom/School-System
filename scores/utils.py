@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.db.models import Avg, Sum, Q
+from django.db import transaction
 from datetime import date
 
 from scores.models import Score, TermResult, YearlyResult, ProgressLog, SubjectPerformance
@@ -180,11 +181,35 @@ class AttendanceUtils:
 class ResultCalculation:
 
     @staticmethod
+    @transaction.atomic
     def generate_term_results(class_obj, term):
         results = []
         for student in class_obj.students.filter(is_active=True):
+            # Scores are the source of truth; summaries may not exist yet.
+            scores = Score.objects.filter(
+                student=student, term=term, is_approved=True,
+                class_subject__class_obj=class_obj,
+            )
+            subject_ids = list(scores.values_list('subject_id', flat=True).distinct())
+            SubjectPerformance.objects.filter(student=student, term=term).exclude(
+                subject_id__in=subject_ids
+            ).delete()
+            for subject_id in subject_ids:
+                subject_scores = scores.filter(subject_id=subject_id)
+                totals = subject_scores.aggregate(obtained=Sum('marks_obtained'), maximum=Sum('max_marks'))
+                percentage = totals['obtained'] / totals['maximum'] * 100 if totals['maximum'] else 0
+                SubjectPerformance.objects.update_or_create(
+                    student=student, term=term, subject_id=subject_id,
+                    defaults={
+                        'total_marks': totals['obtained'], 'max_marks': totals['maximum'],
+                        'average_percentage': percentage,
+                        'number_of_assessments': subject_scores.count(),
+                        'grade': get_grade(percentage),
+                    },
+                )
             subject_performances = SubjectPerformance.objects.filter(student=student, term=term)
             if not subject_performances.exists():
+                TermResult.objects.filter(student=student, term=term, class_obj=class_obj).delete()
                 continue
 
             total_marks = sum(sp.total_marks for sp in subject_performances)

@@ -5,6 +5,10 @@ from rest_framework import status
 from users.models import Student, Teacher
 from classes.models import Class, Subject, ClassSubject, Term
 from scores.models import Score
+from scores.models import SubjectPerformance, TermResult
+from scores.utils import ResultCalculation
+from django.core.management import call_command
+from io import StringIO
 
 User = get_user_model()
 
@@ -117,3 +121,41 @@ class ScoreTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(float(res.data['percentage']), 90.0)
         self.assertEqual(res.data['grade'], 'A')
+
+    def test_command_builds_results_from_scores_without_existing_summaries(self):
+        Score.objects.create(student=self.student, class_subject=self.class_subject,
+                             subject=self.subject, assessment_type='test',
+                             marks_obtained=40, max_marks=50, term=self.term)
+        Score.objects.create(student=self.student, class_subject=self.class_subject,
+                             subject=self.subject, assessment_type='exam',
+                             marks_obtained=80, max_marks=100, term=self.term)
+        output = StringIO()
+        call_command('generate_term_results', term='first', class_name='Form 1A',
+                     year='2024/2025', stdout=output)
+        self.assertIn('1 students', output.getvalue())
+        result = TermResult.objects.get(student=self.student)
+        self.assertEqual(result.total_marks, 120)
+        self.assertEqual(result.total_max_marks, 150)
+        self.assertEqual(result.average_percentage, 80)
+        self.assertEqual(result.position_in_class, 1)
+        self.assertEqual(SubjectPerformance.objects.get().number_of_assessments, 2)
+        self.client.force_authenticate(user=self.student.user)
+        response = self.client.get('/api/v1/results/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_regeneration_updates_existing_results_and_excludes_unapproved_scores(self):
+        score = Score.objects.create(student=self.student, class_subject=self.class_subject,
+                                     subject=self.subject, assessment_type='test',
+                                     marks_obtained=80, max_marks=100, term=self.term)
+        ResultCalculation.generate_term_results(self.cls, self.term)
+        score.marks_obtained = 60
+        score.save()
+        ResultCalculation.generate_term_results(self.cls, self.term)
+        self.assertEqual(TermResult.objects.get().average_percentage, 60)
+        self.assertEqual(SubjectPerformance.objects.count(), 1)
+        score.is_approved = False
+        score.save()
+        self.assertEqual(ResultCalculation.generate_term_results(self.cls, self.term), [])
+        self.assertFalse(TermResult.objects.exists())
+        self.assertFalse(SubjectPerformance.objects.exists())

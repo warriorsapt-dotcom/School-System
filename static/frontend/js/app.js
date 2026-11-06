@@ -952,7 +952,7 @@ async function renderResults(page = 1) {
       <div class="section-header">
         <h4><i class="fas fa-trophy me-2 text-primary"></i>Term Results</h4>
       </div>
-      ${empty('No results yet. Run: python manage.py generate_term_results --term first --class "Form 1A"')}`;
+      ${empty('No results available yet. Please check with your teacher or school administrator.')}`;
     return;
   }
 
