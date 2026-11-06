@@ -49,6 +49,9 @@ class SubjectPerformanceSerializer(serializers.ModelSerializer):
 
 
 class TermResultSerializer(serializers.ModelSerializer):
+    term_label = serializers.CharField(source='term.get_name_display', read_only=True)
+    academic_year = serializers.CharField(source='term.academic_year', read_only=True)
+    term_start = serializers.DateField(source='term.start_date', read_only=True)
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
     class_name = serializers.CharField(source='class_obj.name', read_only=True)
     best_subject_name = serializers.CharField(source='best_subject.name', read_only=True)
@@ -56,7 +59,7 @@ class TermResultSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TermResult
-        fields = ['id', 'student', 'student_name', 'term', 'class_obj', 'class_name',
+        fields = ['id', 'student', 'student_name', 'term', 'term_label', 'academic_year', 'term_start', 'class_obj', 'class_name',
                   'total_marks', 'total_max_marks', 'average_percentage', 'position_in_class',
                   'total_students_in_class', 'overall_grade', 'subjects_passed',
                   'subjects_failed', 'best_subject', 'best_subject_name', 'worst_subject',

@@ -933,6 +933,46 @@ window.openRecordScore = async () => {
   });
 };
 
+function renderPersonalResults(records) {
+  const safe = value => { const el = document.createElement('span'); el.textContent = value ?? '—'; return el.innerHTML; };
+  const ordered = [...records].sort((a, b) => (b.term_start || '').localeCompare(a.term_start || ''));
+  pc().innerHTML = `<section class="results-report">
+    <header class="report-heading"><div><p class="report-eyebrow">YOUR ACADEMIC RECORD</p>
+      <h1>My results</h1><p>A clear view of your progress, one term at a time.</p></div>
+      <div><label for="reportTerm">Reporting period</label><select id="reportTerm" class="form-select">
+        ${ordered.map((r, i) => `<option value="${i}">${safe(r.term_label)} · ${safe(r.academic_year)}</option>`).join('')}
+      </select></div></header><div id="personalReport"></div></section>`;
+  function show(index) {
+    const r = ordered[index];
+    const pct = Math.min(100, Math.max(0, Number(r.average_percentage) || 0));
+    const statuses = {promoted:'Promoted', conditional:'Conditional promotion', retained:'Retained', pending:'Pending review'};
+    $('personalReport').innerHTML = `
+      <article class="report-summary">
+        <div><p class="report-eyebrow">${safe(r.term_label)} · ${safe(r.academic_year)}</p>
+          <h2>${safe(r.student_name)}</h2><p>${safe(r.class_name)} <span aria-hidden="true">/</span> Term report</p>
+          <span class="report-status"><i class="fas fa-circle-check" aria-hidden="true"></i> ${safe(statuses[r.status] || r.status)}</span></div>
+        <div class="report-average"><span>Overall average</span><strong>${pct.toFixed(1)}<small>%</small></strong>
+          <div class="report-meter" role="meter" aria-label="Overall average" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+        </div></article>
+      <div class="report-metrics">
+        <article><span>Overall grade</span><strong>${safe(r.overall_grade || '—')}</strong><small>Term performance</small></article>
+        <article><span>Class position</span><strong>${safe(r.position_in_class || '—')} <small>of ${safe(r.total_students_in_class)}</small></strong><small>${safe(r.class_name)}</small></article>
+        <article><span>Subjects passed</span><strong>${safe(r.subjects_passed)} <small>of ${Number(r.subjects_passed) + Number(r.subjects_failed)}</small></strong><small>${safe(r.subjects_failed)} requiring improvement</small></article>
+        <article><span>Total marks</span><strong>${Number(r.total_marks).toLocaleString()} <small>/ ${Number(r.total_max_marks).toLocaleString()}</small></strong><small>Across assessed subjects</small></article>
+      </div>
+      <div class="report-details"><article class="report-panel"><h2>Subject highlights</h2>
+        <div class="report-highlight"><i class="fas fa-star" aria-hidden="true"></i><div><span>Strongest subject</span><strong>${safe(r.best_subject_name || 'Not available yet')}</strong></div></div>
+        <div class="report-highlight"><i class="fas fa-seedling" aria-hidden="true"></i><div><span>Focus for improvement</span><strong>${safe(r.worst_subject_name || 'Not available yet')}</strong></div></div>
+        <a href="#scores" class="btn btn-outline-primary mt-3">View my scores <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></a>
+      </article><article class="report-panel"><h2>Teacher feedback</h2>
+        <h3>Class teacher</h3><p>${safe(r.class_teacher_comment || 'No feedback added yet.')}</p>
+        <h3>Principal / Head teacher</h3><p>${safe(r.principal_comment || 'No feedback added yet.')}</p>
+      </article></div>`;
+  }
+  $('reportTerm').addEventListener('change', event => show(Number(event.target.value)));
+  show(0);
+}
+
 async function renderResults(page = 1) {
   setTitle('Results');
   loading();
@@ -945,7 +985,15 @@ async function renderResults(page = 1) {
 
   const results = pageData?.results ?? [];
   const count   = pageData?.count ?? 0;
-  const all     = allData?.results ?? [];
+  const all     = [...(allData?.results ?? [])];
+  // The API controls page size; load every page for accurate summaries.
+  let next = allData?.next;
+  let nextPage = 2;
+  while (next) {
+    const data = await API.json(await API.getResults({page: nextPage++}));
+    all.push(...(data?.results ?? []));
+    next = data?.next;
+  }
 
   if (!all.length) {
     pc().innerHTML = `
@@ -955,6 +1003,8 @@ async function renderResults(page = 1) {
       ${empty('No results available yet. Please check with your teacher or school administrator.')}`;
     return;
   }
+
+  if (user.role === 'student') { renderPersonalResults(all); return; }
 
   /* Aggregate for charts */
   const gradeCounts   = { A:0, B:0, C:0, D:0, E:0, F:0 };
