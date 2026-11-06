@@ -17,6 +17,8 @@ frontend. Django serves both the `/api/v1/` API and the frontend pages.
 | [architecture.md](architecture.md) | High-level architecture, data model, role-based scoping, frontend, business logic |
 | [api-reference.md](api-reference.md) | Every REST endpoint, auth, permissions, filters, custom actions, examples |
 | [user-guide.md](user-guide.md) | How admins, teachers, and students use the web app |
+| [student-academic-progress.md](student-academic-progress.md) | Preserve and view student results across classes and years |
+| [academic-progress-demo.md](academic-progress-demo.md) | Eight repeatable progress scenarios and demo account instructions |
 
 ## Technology stack
 
