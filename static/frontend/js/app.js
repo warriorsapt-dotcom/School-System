@@ -940,7 +940,7 @@ function renderPersonalResults(records) {
     <header class="report-heading"><div><p class="report-eyebrow">YOUR ACADEMIC RECORD</p>
       <h1>My results</h1><p>A clear view of your progress, one term at a time.</p></div>
       <div><label for="reportTerm">Reporting period</label><select id="reportTerm" class="form-select">
-        ${ordered.map((r, i) => `<option value="${i}">${safe(r.term_label)} · ${safe(r.academic_year)}</option>`).join('')}
+        ${ordered.map((r, i) => `<option value="${i}">${safe(r.class_name)} · ${safe(r.term_label)} · ${safe(r.academic_year)}</option>`).join('')}
       </select></div></header><div id="personalReport"></div></section>`;
   function show(index) {
     const r = ordered[index];
@@ -976,16 +976,8 @@ function renderPersonalResults(records) {
 async function renderResults(page = 1) {
   setTitle('Results');
   loading();
-  const pageSize = 20;
-
-  const [pageData, allData] = await Promise.all([
-    API.json(await API.getResults({ page, page_size: pageSize })),
-    API.json(await API.getResults({ page_size: 500 })),
-  ]);
-
-  const results = pageData?.results ?? [];
-  const count   = pageData?.count ?? 0;
-  const all     = [...(allData?.results ?? [])];
+  const allData = await API.json(await API.getResults({page: 1}));
+  const all = [...(allData?.results ?? [])];
   // The API controls page size; load every page for accurate summaries.
   let next = allData?.next;
   let nextPage = 2;
@@ -1006,212 +998,61 @@ async function renderResults(page = 1) {
 
   if (user.role === 'student') { renderPersonalResults(all); return; }
 
-  /* Aggregate for charts */
-  const gradeCounts   = { A:0, B:0, C:0, D:0, E:0, F:0 };
-  const statusCounts  = { promoted:0, conditional:0, retained:0, pending:0 };
-  const classAverages = {};
-  const classN        = {};
+  renderGroupedResults(all);
+}
 
-  all.forEach(r => {
-    if (r.overall_grade in gradeCounts) gradeCounts[r.overall_grade]++;
-    if (r.status in statusCounts) statusCounts[r.status]++;
-    if (r.class_name) {
-      classAverages[r.class_name] = (classAverages[r.class_name] || 0) + parseFloat(r.average_percentage || 0);
-      classN[r.class_name]        = (classN[r.class_name] || 0) + 1;
-    }
-  });
-
-  const classLabels = Object.keys(classAverages).sort();
-  const classAvgs   = classLabels.map(c => (classAverages[c] / classN[c]).toFixed(1));
-
-  const totalStudents = all.length;
-  const overallAvg    = (all.reduce((s, r) => s + parseFloat(r.average_percentage || 0), 0) / totalStudents).toFixed(1);
-  const passRate      = ((statusCounts.promoted + statusCounts.conditional) / totalStudents * 100).toFixed(1);
-  const topGrade      = ['A','B','C','D','E','F'].find(g => gradeCounts[g] > 0) || '—';
-
-  const exportBtn = user.role === 'admin'
-    ? `<button class="btn btn-outline-success btn-sm" onclick="exportResultsCsv()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>`
-    : '';
-
-  pc().innerHTML = `
-    <div class="section-header mb-3">
-      <h4><i class="fas fa-trophy me-2 text-primary"></i>Term Results</h4>
-      ${exportBtn}
-    </div>
-
-    <!-- Stat cards -->
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-md-3">
-        ${statCard('fa-users', 'Students', totalStudents, '#e9d8fd', '#6b21a8')}
-      </div>
-      <div class="col-6 col-md-3">
-        ${statCard('fa-percent', 'Overall Avg', overallAvg + '%', '#bee3f8', '#1a56db')}
-      </div>
-      <div class="col-6 col-md-3">
-        ${statCard('fa-arrow-up', 'Pass Rate', passRate + '%', '#c6f6d5', '#276749')}
-      </div>
-      <div class="col-6 col-md-3">
-        ${statCard('fa-star', 'Top Grade', topGrade, '#feebc8', '#c05621')}
-      </div>
-    </div>
-
-    <!-- Charts row -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-header"><i class="fas fa-chart-pie me-2"></i>Grade Distribution</div>
-          <div class="card-body"><div style="position:relative;height:220px"><canvas id="gradeChart"></canvas></div></div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-header"><i class="fas fa-chart-bar me-2"></i>Class Averages</div>
-          <div class="card-body"><div style="position:relative;height:220px"><canvas id="classChart"></canvas></div></div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-header"><i class="fas fa-chart-pie me-2"></i>Promotion Status</div>
-          <div class="card-body"><div style="position:relative;height:220px"><canvas id="statusChart"></canvas></div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Score distribution histogram -->
-    <div class="card mb-4">
-      <div class="card-header"><i class="fas fa-chart-area me-2"></i>Average % Distribution</div>
-      <div class="card-body"><div style="position:relative;height:200px"><canvas id="distChart"></canvas></div></div>
-    </div>
-
-    <!-- Results table -->
-    <div class="card">
-      <div class="card-header fw-semibold"><i class="fas fa-table me-2"></i>All Results</div>
-      <div class="card-body p-0">
-        ${table(
-          ['Student','Class','Avg %','Grade','Position','Passed','Failed','Status',''],
-          results.map(r => [
-            `<strong>${r.student_name}</strong>`,
-            r.class_name,
-            `<strong>${parseFloat(r.average_percentage||0).toFixed(1)}%</strong>`,
-            `<span class="badge bg-primary">${r.overall_grade||'—'}</span>`,
-            r.position_in_class ? `<span class="badge bg-secondary">#${r.position_in_class}</span>` : '—',
-            `<span class="text-success fw-semibold">${r.subjects_passed}</span>`,
-            `<span class="text-danger fw-semibold">${r.subjects_failed}</span>`,
-            `<span class="badge bg-${r.status==='promoted'?'success':r.status==='retained'?'danger':r.status==='conditional'?'warning':'secondary'}">${r.status||'—'}</span>`,
-            `<button class="btn btn-outline-secondary btn-sm" title="Progress chart"
-               onclick="openStudentProgress('${r.student}','${r.student_name}')">
-               <i class="fas fa-chart-line"></i></button>`,
-          ])
-        )}
-      </div>
-      <div class="card-footer">${paginatorControls(count, page, pageSize, p => renderResults(p))}</div>
-    </div>`;
-
-  /* ── Render charts (destroy existing first) ── */
-  const GRADE_COLOR_MAP = { A:'#4361ee', B:'#3a86ff', C:'#06d6a0', D:'#ffd166', E:'#ef476f', F:'#073b4c' };
-  const STATUS_COLORS   = { promoted:'#06d6a0', conditional:'#ffd166', retained:'#ef476f', pending:'#adb5bd' };
-
-  /* Grade distribution doughnut — skip zero-count grades */
-  const gradeNonZero = Object.entries(gradeCounts).filter(([,v]) => v > 0);
-  destroyChart('gradeChart');
-  new Chart($('gradeChart'), {
-    type: 'doughnut',
-    data: {
-      labels: gradeNonZero.map(([k]) => `Grade ${k}`),
-      datasets: [{
-        data: gradeNonZero.map(([,v]) => v),
-        backgroundColor: gradeNonZero.map(([k]) => GRADE_COLOR_MAP[k]),
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} students` } }
-      }
-    }
-  });
-
-  /* Class averages horizontal bar */
-  destroyChart('classChart');
-  new Chart($('classChart'), {
-    type: 'bar',
-    data: {
-      labels: classLabels,
-      datasets: [{
-        label: 'Average %',
-        data: classAvgs,
-        backgroundColor: classLabels.map((_, i) => ['#4361ee','#3a86ff','#06d6a0','#ffd166','#ef476f','#073b4c'][i % 6] + 'cc'),
-        borderRadius: 6,
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { x: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }
-    }
-  });
-
-  /* Promotion status doughnut — skip zero-count statuses */
-  const statusNonZero = Object.entries(statusCounts).filter(([,v]) => v > 0);
-  destroyChart('statusChart');
-  new Chart($('statusChart'), {
-    type: 'doughnut',
-    data: {
-      labels: statusNonZero.map(([k]) => k.charAt(0).toUpperCase() + k.slice(1)),
-      datasets: [{
-        data: statusNonZero.map(([,v]) => v),
-        backgroundColor: statusNonZero.map(([k]) => STATUS_COLORS[k]),
-        borderWidth: 2,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} students` } }
-      }
-    }
-  });
-
-  /* Average % distribution histogram */
-  const buckets = Array(10).fill(0);
-  all.forEach(r => {
-    const pct = parseFloat(r.average_percentage || 0);
-    buckets[Math.min(9, Math.floor(pct / 10))]++;
-  });
-  const bucketLabels = ['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–100'];
-  destroyChart('distChart');
-  new Chart($('distChart'), {
-    type: 'bar',
-    data: {
-      labels: bucketLabels,
-      datasets: [{
-        label: 'Students',
-        data: buckets,
-        backgroundColor: bucketLabels.map((_, i) => i < 5 ? '#ef476fcc' : i < 7 ? '#ffd166cc' : '#06d6a0cc'),
-        borderRadius: 4,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
-        x: { title: { display: true, text: 'Score Range (%)' } }
-      }
-    }
-  });
+let resultExportFilters = {};
+function renderGroupedResults(records) {
+  const safe = value => { const el = document.createElement('span'); el.textContent = value ?? '—'; return el.innerHTML; };
+  const terms = [...new Map(records.map(r => [String(r.term), r])).values()]
+    .sort((a,b) => (b.term_start || '').localeCompare(a.term_start || ''));
+  const classes = [...new Map(records.map(r => [String(r.class_obj), r])).values()]
+    .sort((a,b) => a.class_name.localeCompare(b.class_name, undefined, {numeric:true}));
+  pc().innerHTML = `<section class="results-report">
+    <header class="report-heading"><div><p class="report-eyebrow">ACADEMIC RECORDS</p><h1>Class results</h1>
+    <p>Results grouped by class and reporting term.</p></div>
+    ${user.role === 'admin' ? '<button class="btn btn-outline-primary" id="resultsExport">Export selected results</button>' : ''}</header>
+    <div class="result-filters report-panel mb-4">
+      <label for="resultsClass">Class<select class="form-select" id="resultsClass"><option value="">All classes</option>
+        ${classes.map(r => `<option value="${safe(r.class_obj)}">${safe(r.class_name)}</option>`).join('')}</select></label>
+      <label for="resultsTerm">Term and academic year<select class="form-select" id="resultsTerm">
+        ${terms.map(r => `<option value="${safe(r.term)}">${safe(r.term_label)} · ${safe(r.academic_year)}</option>`).join('')}
+        <option value="">All terms</option></select></label>
+    </div><div id="resultGroups"></div></section>`;
+  function show() {
+    const classId = $('resultsClass').value, termId = $('resultsTerm').value;
+    resultExportFilters = {...(classId ? {class_obj:classId} : {}), ...(termId ? {term:termId} : {})};
+    const visible = records.filter(r => (!classId || String(r.class_obj) === classId) && (!termId || String(r.term) === termId));
+    const groups = new Map();
+    visible.forEach(r => { const key = `${r.class_obj}/${r.term}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(r); });
+    const ordered = [...groups.values()].sort((a,b) => a[0].class_name.localeCompare(b[0].class_name, undefined, {numeric:true}) || (b[0].term_start || '').localeCompare(a[0].term_start || ''));
+    $('resultGroups').innerHTML = ordered.length ? ordered.map(rows => {
+      rows.sort((a,b) => (a.position_in_class || Infinity) - (b.position_in_class || Infinity) || a.student_name.localeCompare(b.student_name));
+      const r = rows[0];
+      const average = rows.reduce((sum,item) => sum + Number(item.average_percentage || 0), 0) / rows.length;
+      return `<article class="report-panel result-group mb-4"><header class="result-group-heading"><div><h2>${safe(r.class_name)}</h2>
+        <p>${safe(r.term_label)} · ${safe(r.academic_year)}</p></div><p>${rows.length} students · Average ${average.toFixed(1)}%</p></header>
+        ${table(['Position','Student','Average','Grade','Passed','Failed','Status',''], rows.map(item => [
+          safe(item.position_in_class ? '#'+item.position_in_class : '—'),
+          `<strong>${safe(item.student_name)}</strong>`, Number(item.average_percentage || 0).toFixed(1)+'%',
+          `<span class="badge bg-primary">${safe(item.overall_grade)}</span>`,safe(item.subjects_passed),safe(item.subjects_failed),
+          safe(({promoted:'Promoted',conditional:'Conditional',retained:'Retained',pending:'Pending'})[item.status] || item.status),
+          `<button class="btn btn-outline-secondary btn-sm" data-result-progress="${safe(item.id)}">View progress</button>`
+        ]))}</article>`;
+    }).join('') : empty('No results for this class and term.');
+    $('resultGroups').querySelectorAll('[data-result-progress]').forEach(button => button.addEventListener('click', () => {
+      const r = visible.find(item => String(item.id) === button.dataset.resultProgress);
+      openStudentProgress(r.student, r.student_name);
+    }));
+  }
+  $('resultsClass').addEventListener('change', show);
+  $('resultsTerm').addEventListener('change', show);
+  $('resultsExport')?.addEventListener('click', () => exportResultsCsv());
+  show();
 }
 
 window.exportResultsCsv = async () => {
-  const res = await API.exportResultsCsv({});
+  const res = await API.exportResultsCsv(resultExportFilters);
   if (res?.ok) {
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
