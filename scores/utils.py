@@ -184,7 +184,12 @@ class ResultCalculation:
     @transaction.atomic
     def generate_term_results(class_obj, term):
         results = []
-        for student in class_obj.students.filter(is_active=True):
+        # Historical results must still be rebuildable after promotion or leaving school.
+        student_ids = Score.objects.filter(class_subject__class_obj=class_obj, term=term).values('student_id')
+        students = Student.objects.filter(
+            Q(pk__in=student_ids) | Q(term_results__class_obj=class_obj, term_results__term=term)
+        ).distinct()
+        for student in students:
             # Scores are the source of truth; summaries may not exist yet.
             scores = Score.objects.filter(
                 student=student, term=term, is_approved=True,
@@ -245,7 +250,8 @@ class ResultCalculation:
     def update_class_rankings(class_obj, term, results):
         for position, result in enumerate(sorted(results, key=lambda x: x.average_percentage, reverse=True), 1):
             result.position_in_class = position
-            result.save(update_fields=['position_in_class'])
+            result.total_students_in_class = len(results)
+            result.save(update_fields=['position_in_class', 'total_students_in_class'])
 
     @staticmethod
     def generate_yearly_results(student, academic_year):

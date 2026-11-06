@@ -7,7 +7,7 @@ class Class(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, unique=True, help_text="e.g., Form 1A, Form 2B")
     class_teacher = models.ForeignKey('users.Teacher', on_delete=models.SET_NULL, null=True, related_name='classes_teaching')
-    form_level = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(6)])
+    form_level = models.IntegerField('Form / grade level', validators=[MinValueValidator(1), MaxValueValidator(10)])
     section = models.CharField(max_length=2, default='A')
     stream = models.CharField(max_length=50, blank=True, null=True)
     capacity = models.IntegerField(default=50, validators=[MinValueValidator(1)])

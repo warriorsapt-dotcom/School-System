@@ -96,7 +96,7 @@ class TermResultViewSet(viewsets.ReadOnlyModelViewSet):
         for r in qs:
             writer.writerow([
                 r.student.user.get_full_name(),
-                r.class_obj.name,
+                r.recorded_class_name or r.class_obj.name,
                 str(r.term),
                 r.average_percentage,
                 r.overall_grade,
@@ -116,19 +116,28 @@ class ProgressChartView(APIView):
         if not student_id:
             return Response({'error': 'student parameter required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            student = Student.objects.get(id=student_id)
+            students = Student.objects.all()
+            if request.user.role == 'student':
+                students = students.filter(user=request.user)
+            elif request.user.role == 'teacher':
+                from classes.assignments import teaching_classes
+                students = students.filter(class_assigned__in=teaching_classes(request.user))
+            elif request.user.role not in ('admin', 'principal'):
+                students = students.none()
+            student = students.get(id=student_id)
         except Student.DoesNotExist:
             return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        progress_data = student.progress_logs.all().order_by('recorded_date')
+        from .progress import student_progress
+        progress_data = student_progress(student)
         chart_data = {
             'labels': [
-                log.term.get_name_display() if log.term else log.academic_year
+                f"{log['class_name']} · {log['term_name']} · {log['academic_year']}"
                 for log in progress_data
             ],
             'datasets': [{
                 'label': 'Average Percentage',
-                'data': [float(log.average_percentage) for log in progress_data],
+                'data': [log['average_percentage'] for log in progress_data],
                 'borderColor': 'rgb(75, 192, 192)',
                 'backgroundColor': 'rgba(75, 192, 192, 0.2)',
             }]

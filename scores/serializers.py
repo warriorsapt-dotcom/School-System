@@ -53,7 +53,7 @@ class TermResultSerializer(serializers.ModelSerializer):
     academic_year = serializers.CharField(source='term.academic_year', read_only=True)
     term_start = serializers.DateField(source='term.start_date', read_only=True)
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
-    class_name = serializers.CharField(source='class_obj.name', read_only=True)
+    class_name = serializers.CharField(source='recorded_class_name', read_only=True)
     best_subject_name = serializers.CharField(source='best_subject.name', read_only=True)
     worst_subject_name = serializers.CharField(source='worst_subject.name', read_only=True)
 

@@ -119,8 +119,10 @@ class TermResult(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey('users.Student', on_delete=models.CASCADE, related_name='term_results')
-    term = models.ForeignKey('classes.Term', on_delete=models.CASCADE, related_name='results')
-    class_obj = models.ForeignKey('classes.Class', on_delete=models.CASCADE)
+    term = models.ForeignKey('classes.Term', on_delete=models.PROTECT, related_name='results')
+    class_obj = models.ForeignKey('classes.Class', on_delete=models.PROTECT)
+    recorded_class_name = models.CharField(max_length=100, blank=True)
+    recorded_level = models.PositiveSmallIntegerField(null=True, blank=True)
 
     total_marks = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     total_max_marks = models.DecimalField(max_digits=8, decimal_places=2, default=0)
@@ -147,6 +149,14 @@ class TermResult(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.term}"
+
+    def save(self, *args, **kwargs):
+        if not self.recorded_class_name:
+            self.recorded_class_name = self.class_obj.name
+            self.recorded_level = self.class_obj.form_level
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = set(kwargs['update_fields']) | {'recorded_class_name', 'recorded_level'}
+        super().save(*args, **kwargs)
 
     def get_overall_grade(self):
         avg = float(self.average_percentage)

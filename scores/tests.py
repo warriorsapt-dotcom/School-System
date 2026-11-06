@@ -9,6 +9,7 @@ from scores.models import SubjectPerformance, TermResult
 from scores.utils import ResultCalculation
 from django.core.management import call_command
 from io import StringIO
+from django.db.models.deletion import ProtectedError
 
 User = get_user_model()
 
@@ -159,3 +160,55 @@ class ScoreTests(APITestCase):
         self.assertEqual(ResultCalculation.generate_term_results(self.cls, self.term), [])
         self.assertFalse(TermResult.objects.exists())
         self.assertFalse(SubjectPerformance.objects.exists())
+
+    def test_progress_follows_student_across_years_and_preserves_old_class(self):
+        Score.objects.create(student=self.student, class_subject=self.class_subject,
+                             subject=self.subject, assessment_type='exam',
+                             marks_obtained=60, max_marks=100, term=self.term)
+        ResultCalculation.generate_term_results(self.cls, self.term)
+        next_class = Class.objects.create(name='Form 2A', form_level=2, year=2025)
+        next_term = Term.objects.create(name='first', academic_year='2025/2026',
+                                       start_date=datetime.date(2025,1,15), end_date=datetime.date(2025,4,15))
+        self.student.class_assigned = next_class
+        self.student.save()
+        TermResult.objects.create(student=self.student, class_obj=next_class, term=next_term,
+                                  average_percentage=80, overall_grade='B')
+        # Rebuilding the old class still includes its former student.
+        rebuilt = ResultCalculation.generate_term_results(self.cls, self.term)
+        self.assertEqual(len(rebuilt), 1)
+        self.assertEqual(rebuilt[0].total_students_in_class, 1)
+        self.cls.name = 'Renamed class'
+        self.cls.save()
+        self.client.force_authenticate(user=self.student.user)
+        response = self.client.get(f'/api/v1/users/students/{self.student.pk}/progress/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([r['class_name'] for r in response.data], ['Form 1A','Form 2A'])
+        self.assertEqual([r['academic_year'] for r in response.data], ['2024/2025','2025/2026'])
+        self.assertEqual([r['average_percentage'] for r in response.data], [60,80])
+        self.assertEqual(response.data[1]['change'], 20)
+        self.assertIsNone(response.data[0]['change'])
+        with self.assertRaises(ProtectedError):
+            self.cls.delete()
+        with self.assertRaises(ProtectedError):
+            self.term.delete()
+
+    def test_grade_ten_and_student_progress_privacy(self):
+        grade = Class(name='Grade 10A', form_level=10, year=2033)
+        grade.full_clean(exclude=['class_teacher'])
+        grade.save()
+        other_user = User.objects.create_user(email='private@school.com', username='private', role='student')
+        other = Student.objects.create(user=other_user, admission_number='PRIVATE', class_assigned=grade)
+        self.client.force_authenticate(user=self.student.user)
+        self.assertEqual(self.client.get(f'/api/v1/users/students/{other.pk}/progress/').status_code, 404)
+        self.assertEqual(self.client.get('/api/v1/progress/chart/', {'student':str(other.pk)}).status_code, 404)
+
+    def test_all_grade_levels_can_be_tracked_without_progress_logs(self):
+        for level in range(1,11):
+            cls = Class.objects.create(name=f'Grade {level}', form_level=level, year=2020+level)
+            term = Term.objects.create(name='second', academic_year=f'{2020+level}/{2021+level}',
+                                       start_date=datetime.date(2020+level,1,15), end_date=datetime.date(2020+level,4,15))
+            TermResult.objects.create(student=self.student, class_obj=cls, term=term, average_percentage=50+level)
+        self.client.force_authenticate(user=self.student.user)
+        data = self.client.get(f'/api/v1/users/students/{self.student.pk}/progress/').data
+        self.assertEqual([r['level'] for r in data], list(range(1,11)))
+        self.assertEqual(len(data), 10)

@@ -8,6 +8,8 @@ from .models import Class, Subject, ClassSubject, Term
 from .serializers import ClassSerializer, ClassDetailSerializer, SubjectSerializer, TermSerializer
 from attendance.serializers import AttendanceSerializer
 from users.views import IsAdmin
+from django.db.models.deletion import ProtectedError
+from rest_framework.exceptions import ValidationError
 
 
 class ClassViewSet(viewsets.ModelViewSet):
@@ -18,6 +20,12 @@ class ClassViewSet(viewsets.ModelViewSet):
     filterset_fields = ['form_level', 'is_active']
     search_fields = ['name', 'stream']
     ordering_fields = ['form_level', 'section']
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError('This class has saved results. Mark it inactive to preserve student history.')
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

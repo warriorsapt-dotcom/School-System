@@ -229,8 +229,8 @@ class StudentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def progress(self, request, pk=None):
         student = self.get_object()
-        qs = student.progress_logs.all().order_by('recorded_date')
-        return Response(ProgressLogSerializer(qs, many=True).data)
+        from scores.progress import student_progress
+        return Response(student_progress(student))
 
 
 class SchoolImageViewSet(viewsets.ModelViewSet):

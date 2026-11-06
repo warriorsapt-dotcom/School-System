@@ -369,7 +369,7 @@ async function renderClasses() {
             <h5 class="card-title mb-0">${c.name}</h5>
             ${badge(c.is_active)}
           </div>
-          <p class="text-muted small mb-1"><i class="fas fa-layer-group me-1"></i>Form ${c.form_level}${c.section} ${c.stream||''}</p>
+          <p class="text-muted small mb-1"><i class="fas fa-layer-group me-1"></i>Level ${c.form_level} · ${c.section} ${c.stream||''}</p>
           <p class="text-muted small mb-1"><i class="fas fa-user-tie me-1"></i>${c.class_teacher_name||'No class teacher'}</p>
           <p class="text-muted small mb-1"><i class="fas fa-users me-1"></i>${c.student_count} students</p>
           <p class="text-muted small mb-0"><i class="fas fa-calendar me-1"></i>${c.year}</p>
@@ -941,7 +941,7 @@ function renderPersonalResults(records) {
       <h1>My results</h1><p>A clear view of your progress, one term at a time.</p></div>
       <div><label for="reportTerm">Reporting period</label><select id="reportTerm" class="form-select">
         ${ordered.map((r, i) => `<option value="${i}">${safe(r.class_name)} · ${safe(r.term_label)} · ${safe(r.academic_year)}</option>`).join('')}
-      </select></div></header><div id="personalReport"></div></section>`;
+      </select></div></header><button id="viewAcademicJourney" class="btn btn-outline-primary mb-4"><i class="fas fa-chart-line me-2" aria-hidden="true"></i>View progress across all years</button><div id="personalReport"></div></section>`;
   function show(index) {
     const r = ordered[index];
     const pct = Math.min(100, Math.max(0, Number(r.average_percentage) || 0));
@@ -969,6 +969,7 @@ function renderPersonalResults(records) {
         <h3>Principal / Head teacher</h3><p>${safe(r.principal_comment || 'No feedback added yet.')}</p>
       </article></div>`;
   }
+  $('viewAcademicJourney').addEventListener('click', () => openStudentProgress(ordered[0].student, ordered[0].student_name));
   $('reportTerm').addEventListener('change', event => show(Number(event.target.value)));
   show(0);
 }
@@ -1065,45 +1066,44 @@ window.exportResultsCsv = async () => {
 };
 
 window.openStudentProgress = async (studentId, studentName) => {
-  openModal(`Progress Chart — ${studentName}`,
-    `<div style="position:relative;height:300px"><canvas id="progressChart"></canvas></div>
-     <div id="progressEmpty" class="d-none text-center text-muted mt-3">No progress data available yet.</div>`,
-    null
-  );
-
-  const data = await API.json(await API.studentProgress(studentId));
-  if (!data?.length) {
-    $('progressEmpty').classList.remove('d-none');
-    return;
-  }
-
-  const labels   = data.map(d => `${d.term_name || ''} ${d.academic_year}`.trim());
-  const percents = data.map(d => parseFloat(d.average_percentage));
-
+  openModal(`Academic progress — ${studentName}`, '<div id="academicJourney">Loading academic history…</div>', null);
+  const host = $('academicJourney');
+  const safe = value => { const el = document.createElement('span'); el.textContent = value ?? '—'; return el.innerHTML; };
+  let data;
+  try {
+    const response = await API.studentProgress(studentId);
+    if (!response?.ok) throw new Error();
+    data = await response.json();
+  } catch { if (host.isConnected) host.textContent = 'Could not load academic history. Please try again.'; return; }
+  if (!host.isConnected) return;
+  if (!data.length) { host.textContent = 'No term results recorded yet. Progress will appear here as results are added.'; return; }
+  const years = new Map();
+  data.forEach(r => { if (!years.has(r.academic_year)) years.set(r.academic_year, []); years.get(r.academic_year).push(r); });
+  const change = (Number(data.at(-1).average_percentage) - Number(data[0].average_percentage)).toFixed(1);
+  host.innerHTML = `<p class="text-muted">${safe(data[0].class_name)} → ${safe(data.at(-1).class_name)} · ${years.size} academic year(s) · ${data.length} recorded term result(s)</p>
+    <p>${data.length > 1 ? `Change from first to latest result: <strong>${Number(change)>0?'+':''}${change} percentage points</strong>.` : 'The first result is the starting point for tracking progress.'}</p>
+    <div style="position:relative;height:280px"><canvas id="progressChart"></canvas></div>
+    <h5 class="mt-4">Year-by-year summary</h5>
+    <p class="small text-muted">Year averages use recorded term results only. Missing terms are not counted as zero, and a year with fewer than three terms is incomplete.</p>
+    ${table(['Academic year','Class / grade','Recorded terms','Average'], [...years].map(([year, rows]) => [
+      safe(year), safe([...new Set(rows.map(r=>r.class_name))].join(', ')),
+      `${new Set(rows.map(r=>r.term)).size} / 3`,
+      (rows.reduce((sum,r)=>sum+Number(r.average_percentage),0)/rows.length).toFixed(1)+'%'
+    ]))}
+    <h5 class="mt-4">Complete term history</h5>
+    ${table(['Year','Class / grade','Term','Average','Grade','Position','Change'], data.map(r=>[
+      safe(r.academic_year),safe(r.class_name),safe(r.term_name),Number(r.average_percentage).toFixed(1)+'%',safe(r.overall_grade),
+      r.rank_in_class ? `${safe(r.rank_in_class)} of ${safe(r.total_students_in_class)}` : '—',
+      r.change == null ? 'Starting point' : `${r.change>0?'+':''}${Number(r.change).toFixed(1)} pp`
+    ]))}`;
   destroyChart('progressChart');
   new Chart($('progressChart'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Average %',
-        data: percents,
-        borderColor: '#4361ee',
-        backgroundColor: 'rgba(67,97,238,.15)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 5,
-        pointBackgroundColor: '#4361ee',
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: { min: 0, max: 100, ticks: { callback: v => v + '%' } }
-      },
-      plugins: { legend: { display: false } }
-    }
+    type:'line',
+    data:{labels:data.map(r=>`${r.class_name} · ${r.term_name} · ${r.academic_year}`),datasets:[{
+      label:'Term average %',data:data.map(r=>Number(r.average_percentage)),borderColor:'#9372d5',
+      backgroundColor:'rgba(147,114,213,.12)',fill:true,tension:0,pointRadius:5
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}},x:{ticks:{maxRotation:45,autoSkip:true,maxTicksLimit:6}}},plugins:{legend:{display:false}}}
   });
 };
 
@@ -1146,7 +1146,7 @@ window.openStudentDetail = async (studentId, studentName) => {
   const recentScores = [...scores].reverse().slice(0, 10);
 
   // Progress data
-  const progLabels   = progress.map(d => `${d.term_name || ''} ${d.academic_year}`.trim());
+  const progLabels   = progress.map(d => `${d.class_name || ''} · ${d.term_name || ''} · ${d.academic_year}`.trim());
   const progPercents = progress.map(d => parseFloat(d.average_percentage));
 
   const modalEl = $('modalBody');
